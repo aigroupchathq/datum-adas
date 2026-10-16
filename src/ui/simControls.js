@@ -125,7 +125,10 @@ export function initSimControls() {
     mirrorToggleBtn.addEventListener('click', () => {
       telemetryState.isMirroredHUD = !telemetryState.isMirroredHUD;
       mirrorToggleBtn.classList.toggle('active', telemetryState.isMirroredHUD);
-      mirrorToggleBtn.textContent = telemetryState.isMirroredHUD ? '🪞 Mirror HUD: ON' : '🪞 Mirror HUD: OFF';
+      const led = mirrorToggleBtn.querySelector('.toggle-led');
+      if (led) led.classList.toggle('led-active', telemetryState.isMirroredHUD);
+      const text = mirrorToggleBtn.querySelector('.toggle-text');
+      if (text) text.textContent = telemetryState.isMirroredHUD ? 'HUD MIRROR: ON' : 'HUD MIRROR';
     });
   }
 
@@ -133,8 +136,11 @@ export function initSimControls() {
   if (muteToggleBtn) {
     muteToggleBtn.addEventListener('click', () => {
       const muted = toggleAudioMute();
-      muteToggleBtn.classList.toggle('active', muted);
-      muteToggleBtn.textContent = muted ? '🔇 Sound: MUTED' : '🔊 Sound: ACTIVE';
+      muteToggleBtn.classList.toggle('active', !muted);
+      const led = muteToggleBtn.querySelector('.toggle-led');
+      if (led) led.classList.toggle('led-active', !muted);
+      const text = muteToggleBtn.querySelector('.toggle-text');
+      if (text) text.textContent = muted ? 'AUDIO: MUTED' : 'AUDIO';
     });
   }
 

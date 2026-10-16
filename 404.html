@@ -217,12 +217,66 @@
     .pill-sim {
       color: #0a84ff;
       border-color: rgba(10, 132, 255, 0.3);
-    }
-
     .controls-group {
       display: flex;
       align-items: center;
       gap: 8px;
+    }
+
+    .cockpit-toggle {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: rgba(22, 24, 30, 0.75);
+      border: 0.5px solid rgba(255, 255, 255, 0.14);
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 0.70rem;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      padding: 6px 13px;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .cockpit-toggle:hover {
+      background: rgba(35, 38, 48, 0.85);
+      border-color: rgba(255, 255, 255, 0.28);
+      color: #ffffff;
+    }
+
+    .cockpit-toggle:active {
+      transform: scale(0.96);
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .cockpit-toggle.active {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.35);
+      color: #ffffff;
+    }
+
+    .toggle-icon {
+      font-size: 0.78rem;
+      opacity: 0.9;
+    }
+
+    .toggle-text {
+      text-transform: uppercase;
+    }
+
+    .toggle-led {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      transition: background 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .cockpit-toggle.active .toggle-led,
+    .toggle-led.led-active {
+      background: var(--accent-safe);
+      box-shadow: 0 0 6px rgba(48, 209, 88, 0.8);
     }
 
     .pill-btn {
@@ -285,7 +339,7 @@
     /* 3. Bottom Instrument Sanctuary (Scandinavian Minimalist Dock) */
     .hud-bottom-dock {
       display: grid;
-      grid-template-columns: 180px 1fr 180px;
+      grid-template-columns: 200px 1fr 210px;
       gap: 16px;
       align-items: flex-end;
       padding-bottom: 4px;
@@ -310,29 +364,49 @@
     .speed-value-row {
       display: flex;
       align-items: baseline;
-      gap: 6px;
+      gap: 8px;
     }
 
     .speed-digits {
-      font-size: 4.2rem;
+      font-size: 4.4rem;
       font-weight: 300;
-      line-height: 0.85;
+      line-height: 0.82;
       letter-spacing: -3px;
       color: #ffffff;
     }
 
+    .speed-unit-col {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+    }
+
     .speed-unit-label {
       font-size: 0.82rem;
-      font-weight: 600;
+      font-weight: 700;
       letter-spacing: 1.2px;
-      color: var(--text-secondary);
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    .speed-source-tag {
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--text-tertiary);
+    }
+
+    .tag-verified {
+      color: var(--accent-safe);
     }
 
     .speed-subtext {
       font-size: 0.68rem;
-      color: var(--text-tertiary);
+      font-weight: 500;
+      color: var(--text-secondary);
       margin-top: 6px;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
     }
 
     /* Center Corridor Focus */
@@ -632,9 +706,20 @@
       </div>
 
       <div class="controls-group">
-        <button id="btn-mirror-toggle" class="pill-btn">🪞 Windshield HUD</button>
-        <button id="btn-mute-toggle" class="pill-btn">🔊 Sound</button>
-        <button id="btn-sim-drawer-toggle" class="pill-btn">⚙️ Demo</button>
+        <button id="btn-mirror-toggle" class="cockpit-toggle" title="Windshield Projection Mode">
+          <span class="toggle-icon">⛶</span>
+          <span class="toggle-text">HUD MIRROR</span>
+          <span class="toggle-led" id="led-mirror"></span>
+        </button>
+        <button id="btn-mute-toggle" class="cockpit-toggle active" title="Audio Klaxon Warning">
+          <span class="toggle-icon">🔊</span>
+          <span class="toggle-text">AUDIO</span>
+          <span class="toggle-led led-active" id="led-sound"></span>
+        </button>
+        <button id="btn-sim-drawer-toggle" class="cockpit-toggle" title="Calibration & Simulation">
+          <span class="toggle-icon">◈</span>
+          <span class="toggle-text">CALIBRATE</span>
+        </button>
       </div>
     </header>
 
@@ -651,20 +736,22 @@
       <div class="dock-card speed-card">
         <div class="speed-value-row">
           <div id="hud-speed-val" class="speed-digits">0</div>
-          <div class="speed-unit-label">MPH</div>
+          <div class="speed-unit-col">
+            <span class="speed-unit-label">MPH</span>
+            <span id="hud-speed-status" class="speed-source-tag tag-verified">● VERIFIED</span>
+          </div>
         </div>
-        <div class="speed-subtext">GNSS SATELLITE VELOCITY</div>
+        <div class="speed-subtext">GROUND SPEED</div>
       </div>
 
       <!-- Center: Lead Corridor Focus -->
       <div class="dock-card center-card">
         <div class="corridor-lead-row">
           <div id="hud-target-dist" class="corridor-distance">CLEAR</div>
-          <div class="corridor-label">LEAD VEHICLE</div>
+          <div class="corridor-label">FORWARD PATH</div>
         </div>
         <div class="corridor-sub-row">
-          <span>Sightline <strong id="hud-vis-range" style="color: #ffffff;">250m</strong></span>
-          <span>Traction <strong id="hud-friction" style="color: #ffffff;">μ 0.82</strong></span>
+          <span id="hud-road-status-text">DRY ASPHALT • TRACTION OPTIMAL</span>
         </div>
       </div>
 
@@ -675,12 +762,12 @@
           <span id="hud-stopping-dist" class="metric-value">0m</span>
         </div>
         <div class="metric-row">
-          <span class="metric-label">Safety Margin</span>
-          <span id="hud-safety-margin" class="metric-value val-safe">+120m</span>
+          <span class="metric-label">Safety Buffer</span>
+          <span id="hud-safety-margin" class="metric-value val-safe">+120m SAFE</span>
         </div>
         <div class="metric-row">
-          <span class="metric-label">Time To Collision</span>
-          <span id="hud-ttc" class="metric-value">--</span>
+          <span class="metric-label">Impact Risk (TTC)</span>
+          <span id="hud-ttc" class="metric-value">STABLE</span>
         </div>
       </div>
     </footer>
