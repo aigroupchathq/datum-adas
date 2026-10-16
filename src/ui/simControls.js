@@ -27,6 +27,7 @@ export function initSimControls() {
   // Quick scenario buttons
   const btnBrakeScenario = document.getElementById('btn-scenario-brake');
   const btnFogScenario = document.getElementById('btn-scenario-fog');
+  const btnCruiseScenario = document.getElementById('btn-scenario-cruise');
   // Drawer Toggle buttons
   const drawerToggleBtn = document.getElementById('btn-sim-drawer-toggle');
   const drawerCloseBtn = document.getElementById('btn-sim-close');

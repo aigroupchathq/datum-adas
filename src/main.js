@@ -20,9 +20,6 @@ if ('serviceWorker' in navigator) {
 }
 
 function bootstrap() {
-  initHud();
-  initSimControls();
-
   const startBtn = document.getElementById('btn-main-start');
   const splashOverlay = document.getElementById('splash-overlay');
   const camRetryBtn = document.getElementById('btn-cam-retry');
@@ -61,6 +58,19 @@ function bootstrap() {
       e.preventDefault();
       initCamera();
     });
+  }
+
+  // Initialize UI subsystems safely
+  try {
+    initHud();
+  } catch (err) {
+    console.error('HUD init error:', err);
+  }
+
+  try {
+    initSimControls();
+  } catch (err) {
+    console.error('Sim controls init error:', err);
   }
 }
 
