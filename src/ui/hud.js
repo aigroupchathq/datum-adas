@@ -273,15 +273,26 @@ function renderRoadOptics() {
 
   arCtx.clearRect(0, 0, w, h);
 
-  const scaleY = h / 120;
-  const scaleX = w / 160;
-  const horizonPx = telemetryState.horizonY * scaleY;
-  const F_Y = 115 * scaleY;
-  const F_X = 115 * scaleX;
-  const H_CAM = telemetryState.cameraHeightM;
+  // Isotropic Pinhole Optics (Square pixels: Fx == Fy)
+  // Matching camera viewport object-fit: cover scaling
+  const scale = Math.max(w / 160, h / 120);
+  const F_OPT = 115 * scale;
+  const vidW = 160 * scale;
+  const vidH = 120 * scale;
+  const offsetX = (w - vidW) / 2;
+  const offsetY = (h - vidH) / 2;
+
+  // Stabilized Horizon row mapped to screen pixels
+  const normHorizonY = (telemetryState.horizonY !== undefined ? telemetryState.horizonY : 54);
+  const horizonPx = Math.max(h * 0.20, Math.min(h * 0.80, offsetY + (normHorizonY * scale)));
+  const H_CAM = Math.max(0.8, telemetryState.cameraHeightM || 1.25);
+
+  let isDanger = telemetryState.alertLevel === 'DANGER_COLLISION';
+  let isCaution = telemetryState.alertLevel === 'CAUTION';
 
   // -------------------------------------------------------------
-  // 1. Serene Horizon Reference Line (Gyroscope Roll & Pitch Stabilized)
+  // Unified 3D Inertial World Transform (Roll & Horizon Stabilized)
+  // All road lines, horizon, and transverse distance gates rotate in unison
   // -------------------------------------------------------------
   arCtx.save();
   if (telemetryState.rollDeg) {
@@ -290,7 +301,8 @@ function renderRoadOptics() {
     arCtx.translate(-w / 2, -horizonPx);
   }
 
-  arCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  // 1. Serene Horizon Reference Line (Gyroscope Stabilized)
+  arCtx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
   arCtx.lineWidth = 1;
   arCtx.beginPath();
   arCtx.moveTo(w * 0.25, horizonPx);
@@ -298,79 +310,98 @@ function renderRoadOptics() {
   arCtx.moveTo(w * 0.55, horizonPx);
   arCtx.lineTo(w * 0.75, horizonPx);
   arCtx.stroke();
-  arCtx.restore();
 
-  // -------------------------------------------------------------
-  // 2. Highway Dashed Lane Stripes & Static Distance Marks
-  // Standard highway geometry: 3.6m lane width (-1.8m left, +1.8m right)
-  // Dashes: 3m paint, 9m gap (12m cycle) with 3D perspective trapezoids
-  // -------------------------------------------------------------
-  arCtx.save();
-
+  // 2. Physical Vehicle Tracking & Golden Highway Dashed Lanes
   const laneLeftM = -1.8;
   const laneRightM = +1.8;
   const carLeftM = -0.925; // 1.85m car track
   const carRightM = +0.925;
   const stripeWidthM = 0.15; // 15cm highway stripe width
 
-  let isDanger = telemetryState.alertLevel === 'DANGER_COLLISION';
-  let isCaution = telemetryState.alertLevel === 'CAUTION';
-
   // A. Inner Vehicle Wheel-Track Trajectory (1.85m track width)
-  arCtx.strokeStyle = isDanger ? 'rgba(255, 59, 48, 0.35)' : 'rgba(255, 255, 255, 0.08)';
+  const trackNearY = h + 10;
+  const trackNearZ = Math.max(1.0, (H_CAM * F_OPT) / Math.max(1, (trackNearY - horizonPx)));
+  const trackFarZ = 55.0; // 55m ahead
+  const trackFarY = horizonPx + (H_CAM * F_OPT) / trackFarZ;
+
+  const xNearL = (w / 2) + (carLeftM * F_OPT) / trackNearZ;
+  const xFarL = (w / 2) + (carLeftM * F_OPT) / trackFarZ;
+  const xNearR = (w / 2) + (carRightM * F_OPT) / trackNearZ;
+  const xFarR = (w / 2) + (carRightM * F_OPT) / trackFarZ;
+
+  arCtx.strokeStyle = isDanger ? 'rgba(255, 59, 48, 0.40)' : (isCaution ? 'rgba(255, 149, 0, 0.30)' : 'rgba(255, 209, 89, 0.18)');
   arCtx.lineWidth = 1.0;
   arCtx.beginPath();
-  const trackNearY = h;
-  const trackNearZ = Math.max(2.5, (H_CAM * F_Y) / Math.max(1, (trackNearY - horizonPx)));
-  const trackFarZ = 55.0; // 55m ahead
-  const trackFarY = horizonPx + (H_CAM * F_Y) / trackFarZ;
-
-  const xNearL = (w / 2) + (carLeftM * F_X) / trackNearZ;
-  const xFarL = (w / 2) + (carLeftM * F_X) / trackFarZ;
-  const xNearR = (w / 2) + (carRightM * F_X) / trackNearZ;
-  const xFarR = (w / 2) + (carRightM * F_X) / trackFarZ;
-
   arCtx.moveTo(xFarL, trackFarY);
   arCtx.lineTo(xNearL, trackNearY);
   arCtx.moveTo(xFarR, trackFarY);
   arCtx.lineTo(xNearR, trackNearY);
   arCtx.stroke();
 
-  // B. Highway Dashed Lane Stripes (Left & Right boundaries)
-  // Rendered as authentic 3D perspective trapezoid dashes on the asphalt
-  const dashLengthM = 3.0; // 3 meters paint
-  const cycleM = 12.0;     // 12 meters repeat cycle
-  const maxZ = 75.0;
-  const minZ = 3.2;
+  // B. Highway Dashed Lane Stripes (Golden / Yellow Luxury Automotive Palette)
+  // Standard highway geometry: 3.6m lane width (-1.8m left, +1.8m right)
+  // Dashes: 3m paint, 9m gap (12m cycle) with 3D perspective trapezoids
+  const cycleM = 12.0;
+  const dashLengthM = 3.0;
+  const maxZ = 80.0;
+  const zBottom = Math.max(1.0, (H_CAM * F_OPT) / Math.max(1, (h - horizonPx + 30)));
+  const zExit = Math.max(0.6, zBottom - dashLengthM);
 
-  for (let zBase = -cycleM; zBase < maxZ; zBase += cycleM) {
-    const z1 = zBase + roadTravelOffsetM;
+  // Phase shift: advances forward with vehicle speed so stripes travel towards driver
+  const phaseM = (cycleM - (roadTravelOffsetM % cycleM)) % cycleM;
+
+  for (let zBase = 0; zBase < maxZ + cycleM; zBase += cycleM) {
+    const z1 = zBase + phaseM;
     const z2 = z1 + dashLengthM;
 
-    if (z2 <= minZ || z1 >= maxZ) continue;
+    if (z2 <= zExit || z1 >= maxZ) continue;
 
-    const clampedZ1 = Math.max(minZ, z1);
+    const clampedZ1 = Math.max(0.8, z1);
     const clampedZ2 = Math.min(maxZ, z2);
     if (clampedZ2 <= clampedZ1) continue;
 
-    const y1 = horizonPx + (H_CAM * F_Y) / clampedZ1;
-    const y2 = horizonPx + (H_CAM * F_Y) / clampedZ2;
+    const y1 = horizonPx + (H_CAM * F_OPT) / clampedZ1;
+    const y2 = horizonPx + (H_CAM * F_OPT) / clampedZ2;
 
     if (y1 <= horizonPx || y2 <= horizonPx) continue;
 
-    const wStripe1 = Math.max(1.0, (stripeWidthM * F_X) / clampedZ1);
-    const wStripe2 = Math.max(0.6, (stripeWidthM * F_X) / clampedZ2);
+    const wStripe1 = Math.max(1.2, (stripeWidthM * F_OPT) / clampedZ1);
+    const wStripe2 = Math.max(0.6, (stripeWidthM * F_OPT) / clampedZ2);
 
-    const fade = Math.max(0.12, Math.min(1.0, 1.0 - (clampedZ1 / maxZ)));
+    // Dynamic atmospheric & bumper exit fade
+    const farFade = Math.max(0, Math.min(1.0, (maxZ - clampedZ1) / 25.0));
+    const nearFade = Math.max(0.3, Math.min(1.0, (h + 40 - y1) / 60.0));
+    const fade = Math.max(0.18, Math.min(1.0, farFade * nearFade));
 
     // Left Lane Dash (X = laneLeftM)
-    const xL1 = (w / 2) + (laneLeftM * F_X) / clampedZ1;
-    const xL2 = (w / 2) + (laneLeftM * F_X) / clampedZ2;
+    const xL1 = (w / 2) + (laneLeftM * F_OPT) / clampedZ1;
+    const xL2 = (w / 2) + (laneLeftM * F_OPT) / clampedZ2;
 
-    arCtx.fillStyle = isDanger
-      ? `rgba(255, 59, 48, ${0.85 * fade})`
-      : (isCaution ? `rgba(245, 166, 35, ${0.75 * fade})` : `rgba(255, 255, 255, ${0.50 * fade})`);
+    // Right Lane Dash (X = laneRightM)
+    const xR1 = (w / 2) + (laneRightM * F_OPT) / clampedZ1;
+    const xR2 = (w / 2) + (laneRightM * F_OPT) / clampedZ2;
 
+    // Golden / Yellow luxury palette with active hazard escalation
+    let strokeGold = `rgba(255, 209, 89, ${0.92 * fade})`;
+    let coreGold = `rgba(255, 242, 185, ${0.70 * fade})`;
+    let shadowGold = 'rgba(255, 193, 7, 0.45)';
+
+    if (isDanger) {
+      strokeGold = `rgba(255, 59, 48, ${0.95 * fade})`;
+      coreGold = `rgba(255, 180, 175, ${0.70 * fade})`;
+      shadowGold = 'rgba(255, 59, 48, 0.85)';
+    } else if (isCaution) {
+      strokeGold = `rgba(255, 149, 0, ${0.95 * fade})`;
+      coreGold = `rgba(255, 215, 140, ${0.70 * fade})`;
+      shadowGold = 'rgba(255, 149, 0, 0.65)';
+    }
+
+    arCtx.save();
+    arCtx.shadowColor = shadowGold;
+    arCtx.shadowBlur = isDanger ? 12 : (isCaution ? 8 : 5);
+    arCtx.fillStyle = strokeGold;
+
+    // Left Lane Dash Trapezoid
     arCtx.beginPath();
     arCtx.moveTo(xL1 - wStripe1 / 2, y1);
     arCtx.lineTo(xL1 + wStripe1 / 2, y1);
@@ -379,10 +410,7 @@ function renderRoadOptics() {
     arCtx.closePath();
     arCtx.fill();
 
-    // Right Lane Dash (X = laneRightM)
-    const xR1 = (w / 2) + (laneRightM * F_X) / clampedZ1;
-    const xR2 = (w / 2) + (laneRightM * F_X) / clampedZ2;
-
+    // Right Lane Dash Trapezoid
     arCtx.beginPath();
     arCtx.moveTo(xR1 - wStripe1 / 2, y1);
     arCtx.lineTo(xR1 + wStripe1 / 2, y1);
@@ -390,6 +418,29 @@ function renderRoadOptics() {
     arCtx.lineTo(xR2 - wStripe2 / 2, y2);
     arCtx.closePath();
     arCtx.fill();
+
+    // High-luminance inner core beam
+    arCtx.fillStyle = coreGold;
+    const wCore1 = wStripe1 * 0.45;
+    const wCore2 = wStripe2 * 0.45;
+
+    arCtx.beginPath();
+    arCtx.moveTo(xL1 - wCore1 / 2, y1);
+    arCtx.lineTo(xL1 + wCore1 / 2, y1);
+    arCtx.lineTo(xL2 + wCore2 / 2, y2);
+    arCtx.lineTo(xL2 - wCore2 / 2, y2);
+    arCtx.closePath();
+    arCtx.fill();
+
+    arCtx.beginPath();
+    arCtx.moveTo(xR1 - wCore1 / 2, y1);
+    arCtx.lineTo(xR1 + wCore1 / 2, y1);
+    arCtx.lineTo(xR2 + wCore2 / 2, y2);
+    arCtx.lineTo(xR2 - wCore2 / 2, y2);
+    arCtx.closePath();
+    arCtx.fill();
+
+    arCtx.restore();
   }
 
   // C. Static Road Distance Marks (15m, 30m, 50m)
@@ -398,26 +449,26 @@ function renderRoadOptics() {
   arCtx.font = '600 10.5px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
 
   staticGates.forEach(distM => {
-    const yPx = horizonPx + (H_CAM * F_Y) / distM;
+    const yPx = horizonPx + (H_CAM * F_OPT) / distM;
     if (yPx > horizonPx + 8 && yPx < h - 12) {
-      const xLeft = (w / 2) + (laneLeftM * F_X) / distM;
-      const xRight = (w / 2) + (laneRightM * F_X) / distM;
+      const xLeft = (w / 2) + (laneLeftM * F_OPT) / distM;
+      const xRight = (w / 2) + (laneRightM * F_OPT) / distM;
 
       const isTargetBreached = telemetryState.targetDistanceM <= distM;
-      const gateColor = isTargetBreached && isDanger
+      let gateColor = isTargetBreached && isDanger
         ? '#ff453a'
-        : (isTargetBreached && isCaution ? '#ff9f0a' : 'rgba(255, 255, 255, 0.35)');
+        : (isTargetBreached && isCaution ? '#ff9f0a' : 'rgba(255, 209, 89, 0.45)');
 
       // Transverse calibration bar across the highway lane
       arCtx.strokeStyle = gateColor;
-      arCtx.lineWidth = isTargetBreached ? 1.5 : 0.75;
+      arCtx.lineWidth = isTargetBreached ? 1.5 : 0.85;
       arCtx.beginPath();
       arCtx.moveTo(xLeft, yPx);
       arCtx.lineTo(xRight, yPx);
       arCtx.stroke();
 
       // Inward depth tick notches
-      const tickH = Math.max(3, 130 / distM);
+      const tickH = Math.max(3, (H_CAM * F_OPT * 0.04) / distM);
       arCtx.beginPath();
       arCtx.moveTo(xLeft, yPx - tickH);
       arCtx.lineTo(xLeft, yPx + tickH);
@@ -434,9 +485,9 @@ function renderRoadOptics() {
       const pillY = yPx - (pillH / 2);
 
       arCtx.save();
-      arCtx.fillStyle = 'rgba(16, 18, 26, 0.82)';
+      arCtx.fillStyle = 'rgba(20, 18, 12, 0.85)';
       arCtx.strokeStyle = gateColor;
-      arCtx.lineWidth = 0.5;
+      arCtx.lineWidth = 0.75;
       arCtx.beginPath();
       if (arCtx.roundRect) {
         arCtx.roundRect(pillX, pillY, pillW, pillH, 8);
@@ -446,7 +497,7 @@ function renderRoadOptics() {
       arCtx.fill();
       arCtx.stroke();
 
-      arCtx.fillStyle = isTargetBreached ? gateColor : '#ffffff';
+      arCtx.fillStyle = isTargetBreached ? gateColor : '#ffd159';
       arCtx.textAlign = 'center';
       arCtx.textBaseline = 'middle';
       arCtx.fillText(pillLabel, pillX + (pillW / 2), pillY + (pillH / 2));
@@ -454,38 +505,36 @@ function renderRoadOptics() {
     }
   });
 
-  arCtx.restore();
-
-  // -------------------------------------------------------------
   // 3. Dynamic Road Stopping Arc (Physical Braking Limit Horizon)
-  // -------------------------------------------------------------
   const stoppingDistM = telemetryState.stoppingDistanceM;
-  if (stoppingDistM > 8 && stoppingDistM < 130) {
-    const stopY = horizonPx + (H_CAM * F_Y) / stoppingDistM;
-    if (stopY > horizonPx + 10 && stopY < h - 35) {
+  if (stoppingDistM > 5 && stoppingDistM < 130) {
+    const stopY = horizonPx + (H_CAM * F_OPT) / stoppingDistM;
+    if (stopY > horizonPx + 6 && stopY < h - 10) {
       const isBreached = telemetryState.targetDistanceM <= stoppingDistM;
-      const arcWidth = Math.min(w * 0.55, 60 + (stopY - horizonPx) * 1.2);
+      const arcWidth = Math.min(w * 0.70, (3.6 * F_OPT) / stoppingDistM);
       const arcLeft = (w - arcWidth) / 2;
       const arcRight = (w + arcWidth) / 2;
 
       arCtx.save();
       if (isBreached) {
-        arCtx.strokeStyle = 'rgba(255, 59, 48, 0.9)';
+        arCtx.strokeStyle = 'rgba(255, 59, 48, 0.95)';
         arCtx.lineWidth = 2.5;
-        arCtx.shadowColor = 'rgba(255, 59, 48, 0.6)';
-        arCtx.shadowBlur = 10;
+        arCtx.shadowColor = 'rgba(255, 59, 48, 0.8)';
+        arCtx.shadowBlur = 12;
       } else {
-        arCtx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
-        arCtx.lineWidth = 1;
+        arCtx.strokeStyle = 'rgba(255, 209, 89, 0.28)';
+        arCtx.lineWidth = 1.2;
       }
 
       arCtx.beginPath();
       arCtx.moveTo(arcLeft, stopY);
-      arCtx.quadraticCurveTo(w / 2, stopY + 4, arcRight, stopY);
+      arCtx.quadraticCurveTo(w / 2, stopY + Math.max(3, 30 / stoppingDistM), arcRight, stopY);
       arCtx.stroke();
       arCtx.restore();
     }
   }
+
+  arCtx.restore(); // End of unified roll/horizon coordinate space
 
   // -------------------------------------------------------------
   // 4. Lead Target Tracking Reticle with Uncertainty Bounds
@@ -506,16 +555,16 @@ function renderRoadOptics() {
   }
 
   if (bbox && telemetryState.targetDistanceM < 110) {
-    const bx = bbox.x * scaleX;
-    const by = bbox.y * scaleY;
-    const bw = bbox.width * scaleX;
-    const bh = bbox.height * scaleY;
+    const bx = offsetX + (bbox.x * scale);
+    const by = offsetY + (bbox.y * scale);
+    const bw = bbox.width * scale;
+    const bh = bbox.height * scale;
 
-    let strokeColor = 'rgba(255, 255, 255, 0.5)';
+    let strokeColor = 'rgba(255, 209, 89, 0.75)';
     if (telemetryState.alertLevel === 'DANGER_COLLISION') {
       strokeColor = '#ff3b30';
     } else if (telemetryState.alertLevel === 'CAUTION') {
-      strokeColor = '#f5a623';
+      strokeColor = '#ff9500';
     }
 
     const corner = Math.min(10, Math.floor(bw * 0.25));
