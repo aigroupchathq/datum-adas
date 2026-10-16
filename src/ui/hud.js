@@ -295,9 +295,10 @@ function renderRoadOptics() {
   // All road lines, horizon, and transverse distance gates rotate in unison
   // -------------------------------------------------------------
   arCtx.save();
-  if (telemetryState.rollDeg) {
+  const safeRollDeg = Math.max(-4.0, Math.min(4.0, telemetryState.rollDeg || 0));
+  if (Math.abs(safeRollDeg) > 0.2) {
     arCtx.translate(w / 2, horizonPx);
-    arCtx.rotate((telemetryState.rollDeg * Math.PI) / 180);
+    arCtx.rotate((safeRollDeg * Math.PI) / 180);
     arCtx.translate(-w / 2, -horizonPx);
   }
 

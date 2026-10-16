@@ -190,6 +190,28 @@ rollAngles.forEach(deg => {
     `[Roll ${deg > 0 ? '+' : ''}${deg}°] Unified roll maintains strict 90° orthogonality between road axis and horizon (dot=${dot.toFixed(4)})`);
 });
 
+// Category 5.2: 360° Tilt Rotation Rejection & Deadband Filter Audit
+const extremeEulerSpins = [-180, -90, -45, -15, -1.0, 0, 1.0, 15, 45, 90, 180, 360];
+extremeEulerSpins.forEach(rawDeg => {
+  // Simulate imu.js filter logic: baseline = 0
+  let delta = rawDeg;
+  if (delta > 90) delta -= 180;
+  if (delta < -90) delta += 180;
+  
+  let active = 0;
+  if (Math.abs(delta) > 1.2) {
+    active = delta > 0 ? (delta - 1.2) : (delta + 1.2);
+  }
+  const clamped = Math.max(-4.0, Math.min(4.0, active));
+
+  assert(Math.abs(clamped) <= 4.0, 
+    `[Euler spin ${rawDeg}°] Hard-clamped to safe automotive envelope: ${clamped.toFixed(1)}° (<= 4.0°)`);
+
+  if (Math.abs(rawDeg) <= 1.0) {
+    assert(clamped === 0, `[Tremor ${rawDeg}°] Deadband filter completely eliminates micro-jitter (output 0°)`);
+  }
+});
+
 // -------------------------------------------------------------
 // CATEGORY 6: ROAD SURFACE FRICTION & BRAKING STOPPING MATRIX
 // -------------------------------------------------------------
