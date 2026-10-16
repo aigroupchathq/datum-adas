@@ -14,14 +14,15 @@ const MPH_TO_MPS = 0.44704;
  * @param {object} state - Current telemetry snapshot
  * @returns {object} High-precision safety envelope updates
  */
-export function evaluateSafety(state) {
-  const speedMps = Math.max(0, state.speedMps || 0);
-  const targetDistanceM = Math.max(0, state.targetDistanceM || 120);
-  const visibilityRangeM = Math.max(10, state.visibilityRangeM || 250);
-  const frictionMu = Math.max(0.15, Math.min(0.95, state.assumedFrictionMu || 0.82));
-  const closingSpeedMph = state.targetClosingSpeedMph || 0;
-  const brakeLights = state.targetBrakeLightsDetected || false;
-  let consecutiveHazardFrames = state.consecutiveHazardFrames || 0;
+export function evaluateSafety(state = {}) {
+  const s = state || {};
+  const speedMps = Math.max(0, Math.min(100, (typeof s.speedMps === 'number' && Number.isFinite(s.speedMps)) ? s.speedMps : 0));
+  const targetDistanceM = Math.max(0, Math.min(300, (typeof s.targetDistanceM === 'number' && Number.isFinite(s.targetDistanceM)) ? s.targetDistanceM : 120));
+  const visibilityRangeM = Math.max(10, Math.min(500, (typeof s.visibilityRangeM === 'number' && Number.isFinite(s.visibilityRangeM)) ? s.visibilityRangeM : 250));
+  const frictionMu = Math.max(0.15, Math.min(0.95, (typeof s.assumedFrictionMu === 'number' && Number.isFinite(s.assumedFrictionMu)) ? s.assumedFrictionMu : 0.82));
+  const closingSpeedMph = Math.max(-50, Math.min(150, (typeof s.targetClosingSpeedMph === 'number' && Number.isFinite(s.targetClosingSpeedMph)) ? s.targetClosingSpeedMph : 0));
+  const brakeLights = Boolean(s.targetBrakeLightsDetected);
+  let consecutiveHazardFrames = Math.max(0, Math.min(100, (typeof s.consecutiveHazardFrames === 'number' && Number.isFinite(s.consecutiveHazardFrames)) ? s.consecutiveHazardFrames : 0));
 
   // -------------------------------------------------------------
   // 1. Stopping Distance Kinematics: d_stop = d_reaction + d_braking
@@ -30,10 +31,29 @@ export function evaluateSafety(state) {
   const reactionDistanceM = Math.round(speedMps * HUMAN_REACTION_TIME_SEC);
   const brakingDistanceM = Math.round((speedMps * speedMps) / (2 * frictionMu * GRAVITY_MPS2));
   const stoppingDistanceM = reactionDistanceM + brakingDistanceM;
-  const effectiveDistanceM = (state.conservativeDistanceM && state.conservativeDistanceM > 0)
-    ? state.conservativeDistanceM
+  const effectiveDistanceM = (typeof s.conservativeDistanceM === 'number' && Number.isFinite(s.conservativeDistanceM) && s.conservativeDistanceM > 0)
+    ? s.conservativeDistanceM
     : targetDistanceM;
   const safetyMarginM = Math.round(effectiveDistanceM - stoppingDistanceM);
+
+  // -------------------------------------------------------------
+  // 1b. IEEE 2846 / Mobileye RSS (Responsibility-Sensitive Safety)
+  // Formal Longitudinal Safe Distance:
+  // d_rss = max(0, v_r * rho + 0.5 * a_acc * rho^2 + (v_r + rho * a_acc)^2 / (2 * b_min) - v_f^2 / (2 * b_max))
+  // -------------------------------------------------------------
+  const rhoReactionSec = HUMAN_REACTION_TIME_SEC;
+  const aMaxAccMps2 = 1.5; // Maximum plausible acceleration during reaction delay
+  const bMinEgoBrakingMps2 = Math.max(1.5, frictionMu * GRAVITY_MPS2 * 0.85); // Dynamic surface friction limited
+  const bMaxLeadBrakingMps2 = GRAVITY_MPS2; // Lead vehicle maximum emergency braking (1.0g)
+  const leadSpeedMps = Math.max(0, speedMps - (closingSpeedMph * MPH_TO_MPS));
+
+  const egoTravelDuringReaction = (speedMps * rhoReactionSec) + (0.5 * aMaxAccMps2 * rhoReactionSec * rhoReactionSec);
+  const egoSpeedAfterReaction = speedMps + (rhoReactionSec * aMaxAccMps2);
+  const egoBrakingDistRss = (egoSpeedAfterReaction * egoSpeedAfterReaction) / (2 * bMinEgoBrakingMps2);
+  const leadBrakingDistRss = (leadSpeedMps * leadSpeedMps) / (2 * bMaxLeadBrakingMps2);
+
+  const rssSafeDistanceM = Math.max(0, Math.round(egoTravelDuringReaction + egoBrakingDistRss - leadBrakingDistRss));
+  const isRssCompliant = effectiveDistanceM >= rssSafeDistanceM;
 
   // -------------------------------------------------------------
   // 2. Optical Looming & Relative Closing Speed Time-To-Collision (TTC)
@@ -106,6 +126,8 @@ export function evaluateSafety(state) {
     brakingDistanceM,
     stoppingDistanceM,
     safetyMarginM,
+    rssSafeDistanceM,
+    isRssCompliant,
     timeToCollisionSec,
     consecutiveHazardFrames,
     alertLevel

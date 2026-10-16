@@ -144,7 +144,10 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
   let bestConfidence = 0;
   let brakeLightsDetected = false;
 
-  for (let y = scanEndY; y >= scanStartY; y--) {
+  // Mode A: Daytime Ground Shadow & Bilateral Bumper Silhouette
+  // In LOW_LIGHT conditions (scotopic night), ground shadows do not exist; route directly to Mode B
+  if (roadCondition !== 'LOW_LIGHT') {
+    for (let y = scanEndY; y >= scanStartY; y--) {
     const rowOffset = y * width;
     const prevRowOffset = (y - 2) * width;
 
@@ -204,6 +207,7 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
     if (bestObstacleRow !== -1 && bestConfidence > 35) {
       break;
     }
+  }
   }
 
   // Mode B: Nighttime / Wet-Road Bilateral Taillight Clustering
