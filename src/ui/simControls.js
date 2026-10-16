@@ -27,7 +27,15 @@ export function initSimControls() {
   // Quick scenario buttons
   const btnBrakeScenario = document.getElementById('btn-scenario-brake');
   const btnFogScenario = document.getElementById('btn-scenario-fog');
-  const btnCruiseScenario = document.getElementById('btn-scenario-cruise');
+  // Drawer Toggle buttons
+  const drawerToggleBtn = document.getElementById('btn-sim-drawer-toggle');
+  const drawerCloseBtn = document.getElementById('btn-sim-close');
+  if (drawerToggleBtn && simDrawer) {
+    drawerToggleBtn.addEventListener('click', () => simDrawer.classList.toggle('open'));
+  }
+  if (drawerCloseBtn && simDrawer) {
+    drawerCloseBtn.addEventListener('click', () => simDrawer.classList.remove('open'));
+  }
 
   if (!simToggleBtn) return;
 

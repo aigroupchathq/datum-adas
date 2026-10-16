@@ -1,6 +1,6 @@
 /**
- * 60 FPS Automotive HUD Renderer
- * Pure DOM updates based on telemetryState snapshots.
+ * 60 FPS Automotive HUD & AR Viewfinder Renderer
+ * Pure DOM & Canvas updates based on telemetryState snapshots.
  */
 
 import { telemetryState } from '../state.js';
@@ -8,9 +8,8 @@ import { evaluateAudioAlert } from './audioAlerts.js';
 
 let isRunning = false;
 
-// DOM Element References (cached once)
+// DOM Element References
 let speedValEl = null;
-let speedUnitEl = null;
 let targetDistValEl = null;
 let stoppingDistValEl = null;
 let ttcValEl = null;
@@ -23,10 +22,14 @@ let alertMessageEl = null;
 let hudContainerEl = null;
 let gpsStatusEl = null;
 let vehicleBadgeEl = null;
+let cameraStatusEl = null;
+
+// AR Overlay Canvas
+let arCanvas = null;
+let arCtx = null;
 
 export function initHud() {
   speedValEl = document.getElementById('hud-speed-val');
-  speedUnitEl = document.getElementById('hud-speed-unit');
   targetDistValEl = document.getElementById('hud-target-dist');
   stoppingDistValEl = document.getElementById('hud-stopping-dist');
   ttcValEl = document.getElementById('hud-ttc');
@@ -39,6 +42,12 @@ export function initHud() {
   hudContainerEl = document.getElementById('hud-viewport');
   gpsStatusEl = document.getElementById('hud-gps-status');
   vehicleBadgeEl = document.getElementById('hud-vehicle-badge');
+  cameraStatusEl = document.getElementById('hud-camera-status');
+
+  arCanvas = document.getElementById('ar-overlay-canvas');
+  if (arCanvas) {
+    arCtx = arCanvas.getContext('2d');
+  }
 
   isRunning = true;
   requestAnimationFrame(renderLoop);
@@ -48,6 +57,7 @@ function renderLoop() {
   if (!isRunning) return;
 
   renderState();
+  renderArOverlay();
   evaluateAudioAlert(telemetryState.alertLevel);
 
   requestAnimationFrame(renderLoop);
@@ -83,10 +93,10 @@ function renderState() {
     vehicleBadgeEl.textContent = `${telemetryState.vehicleClass} (${telemetryState.cameraHeightM}m)`;
   }
 
-  // 4. GPS & Sensor Status
+  // 4. GPS & Camera Status Indicators
   if (gpsStatusEl) {
     if (telemetryState.isSimMode) {
-      gpsStatusEl.textContent = 'SIM MODE';
+      gpsStatusEl.textContent = 'SIM GPS';
       gpsStatusEl.className = 'status-tag tag-sim';
     } else if (telemetryState.gpsAccuracyM !== null) {
       gpsStatusEl.textContent = `GPS ±${telemetryState.gpsAccuracyM}m`;
@@ -94,6 +104,19 @@ function renderState() {
     } else {
       gpsStatusEl.textContent = 'SEARCHING GPS';
       gpsStatusEl.className = 'status-tag tag-warn';
+    }
+  }
+
+  if (cameraStatusEl) {
+    if (telemetryState.cameraStatus === 'ACTIVE') {
+      cameraStatusEl.textContent = 'CAM: LIVE 10Hz';
+      cameraStatusEl.className = 'status-tag tag-gps';
+    } else if (telemetryState.cameraStatus === 'DENIED' || telemetryState.cameraStatus === 'UNSUPPORTED' || telemetryState.isSimMode) {
+      cameraStatusEl.textContent = 'CAM: SIMULATED';
+      cameraStatusEl.className = 'status-tag tag-sim';
+    } else {
+      cameraStatusEl.textContent = 'CAM: CONNECTING';
+      cameraStatusEl.className = 'status-tag tag-warn';
     }
   }
 
@@ -124,6 +147,100 @@ function renderState() {
       hudContainerEl.classList.add('mirror-hud');
     } else {
       hudContainerEl.classList.remove('mirror-hud');
+    }
+  }
+}
+
+/**
+ * Renders Augmented Reality (AR) road perspective and target lock box
+ */
+function renderArOverlay() {
+  if (!arCanvas || !arCtx) return;
+
+  const w = arCanvas.clientWidth;
+  const h = arCanvas.clientHeight;
+
+  if (arCanvas.width !== w || arCanvas.height !== h) {
+    arCanvas.width = w;
+    arCanvas.height = h;
+  }
+
+  arCtx.clearRect(0, 0, w, h);
+
+  // Scalers from 160x120 vision space to display screen
+  const scaleX = w / 160;
+  const scaleY = h / 120;
+  const horizonPx = telemetryState.horizonY * scaleY;
+
+  // 1. Vanishing Point Horizon Line
+  arCtx.strokeStyle = 'rgba(0, 217, 255, 0.4)';
+  arCtx.lineWidth = 1;
+  arCtx.setLineDash([6, 6]);
+  arCtx.beginPath();
+  arCtx.moveTo(0, horizonPx);
+  arCtx.lineTo(w, horizonPx);
+  arCtx.stroke();
+  arCtx.setLineDash([]);
+
+  // 2. Optical Lane Corridor Guide Lines (Trapezoid)
+  arCtx.strokeStyle = 'rgba(0, 255, 136, 0.25)';
+  arCtx.lineWidth = 2;
+  arCtx.beginPath();
+  // Left lane line
+  arCtx.moveTo(w * 0.45, horizonPx);
+  arCtx.lineTo(w * 0.15, h);
+  // Right lane line
+  arCtx.moveTo(w * 0.55, horizonPx);
+  arCtx.lineTo(w * 0.85, h);
+  arCtx.stroke();
+
+  // 3. Lead Obstacle AR Target Bounding Box
+  let bbox = telemetryState.obstacleBbox;
+
+  // If in sim mode, construct synthetic visual bbox matching targetDistanceM
+  if (telemetryState.isSimMode && telemetryState.targetDistanceM < 120) {
+    const simNorm = Math.max(0, Math.min(1, (120 - telemetryState.targetDistanceM) / 115));
+    const boxW = 16 + (simNorm * 36);
+    const boxH = boxW * 0.65;
+    const boxY = (telemetryState.horizonY + 4) + (simNorm * (110 - telemetryState.horizonY - 4));
+    bbox = {
+      x: 80 - Math.floor(boxW / 2),
+      y: boxY - boxH,
+      width: boxW,
+      height: boxH
+    };
+  }
+
+  if (bbox) {
+    const bx = bbox.x * scaleX;
+    const by = bbox.y * scaleY;
+    const bw = bbox.width * scaleX;
+    const bh = bbox.height * scaleY;
+
+    // Determine target color based on alert level
+    let targetColor = '#00ff88'; // Safe
+    if (telemetryState.alertLevel === 'DANGER_COLLISION') {
+      targetColor = '#ff3344'; // Danger
+    } else if (telemetryState.alertLevel === 'CAUTION') {
+      targetColor = '#ffb800'; // Caution
+    }
+
+    // Draw Target Box Corners (High-tech HUD reticle)
+    arCtx.strokeStyle = targetColor;
+    arCtx.lineWidth = 3;
+    arCtx.strokeRect(bx, by, bw, bh);
+
+    // Target Info Pill above vehicle
+    arCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+    arCtx.fillRect(bx, Math.max(0, by - 24), Math.max(90, bw), 20);
+
+    arCtx.fillStyle = targetColor;
+    arCtx.font = 'bold 12px monospace';
+    arCtx.fillText(`${telemetryState.targetDistanceM}m`, bx + 4, Math.max(14, by - 10));
+
+    if (telemetryState.timeToCollisionSec < 99 && telemetryState.speedMph > 2) {
+      arCtx.fillStyle = '#ff5252';
+      arCtx.fillText(`TTC ${telemetryState.timeToCollisionSec}s`, bx + 42, Math.max(14, by - 10));
     }
   }
 }

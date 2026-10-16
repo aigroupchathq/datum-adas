@@ -3,9 +3,9 @@
  * Initializes hardware sensors, safety loops, audio context, and offline service worker.
  */
 
-import { initCamera, stopCamera } from './sensors/camera.js';
-import { initGps, stopGps } from './sensors/gps.js';
-import { requestWakeLock, releaseWakeLock } from './sensors/wakeLock.js';
+import { initCamera } from './sensors/camera.js';
+import { initGps } from './sensors/gps.js';
+import { requestWakeLock } from './sensors/wakeLock.js';
 import { initAudio } from './ui/audioAlerts.js';
 import { initHud } from './ui/hud.js';
 import { initSimControls } from './ui/simControls.js';
@@ -20,8 +20,8 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  // Initialize UI systems
+function bootstrap() {
+  // 1. Initialize HUD & Simulation controls
   initHud();
   initSimControls();
 
@@ -29,21 +29,35 @@ document.addEventListener('DOMContentLoaded', () => {
   const splashOverlay = document.getElementById('splash-overlay');
 
   if (startBtn && splashOverlay) {
-    startBtn.addEventListener('click', async () => {
+    const handleLaunch = async (e) => {
+      if (e) e.preventDefault();
+
+      // Immediately hide splash overlay so user sees the HUD right away
+      splashOverlay.classList.add('hidden');
+
       // 1. Mandatory User Gesture Unlock for Web Audio API
       initAudio();
 
       // 2. Request Screen WakeLock
-      await requestWakeLock();
+      requestWakeLock().catch(() => {});
 
-      // 3. Initialize GPS (runs offline directly from GNSS receiver)
+      // 3. Initialize GPS (offline satellite GNSS)
       initGps();
 
-      // 4. Initialize Camera Stream (with zero-record ephemeral 160x120 sampling)
-      await initCamera();
+      // 4. Initialize Camera Stream (with fallback to sim/demo if unavailable)
+      initCamera().catch(err => {
+        console.warn('Camera launch warning:', err);
+      });
+    };
 
-      // 5. Hide splash overlay and show active HUD
-      splashOverlay.classList.add('hidden');
-    });
+    startBtn.addEventListener('click', handleLaunch);
+    startBtn.addEventListener('touchend', handleLaunch);
   }
-});
+}
+
+// Ensure execution whether DOM is already loaded or still parsing
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootstrap);
+} else {
+  bootstrap();
+}

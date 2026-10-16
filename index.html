@@ -9,10 +9,10 @@
   <style>
     :root {
       --bg: #000000;
-      --card-bg: rgba(18, 18, 20, 0.85);
-      --border: #222228;
+      --card-bg: rgba(14, 14, 18, 0.75);
+      --border: rgba(255, 255, 255, 0.12);
       --text: #ffffff;
-      --text-muted: #8e8e93;
+      --text-muted: #9e9ea6;
       --safe: #00ff88;
       --caution: #ffb800;
       --danger: #ff3344;
@@ -27,6 +27,7 @@
       padding: 0;
       user-select: none;
       -webkit-user-select: none;
+      touch-action: manipulation;
     }
 
     body, html {
@@ -43,15 +44,51 @@
       transform: scaleX(-1);
     }
 
-    /* Main Container */
+    /* Main Viewport Container */
     #hud-viewport {
+      position: relative;
       width: 100vw;
       height: 100vh;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 16px 24px;
+      padding: 12px 18px;
       transition: transform 0.25s ease-in-out;
+      overflow: hidden;
+    }
+
+    /* Camera & AR Viewfinder Background */
+    #camera-viewport {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      background: radial-gradient(circle at center, #111118 0%, #000000 100%);
+      overflow: hidden;
+    }
+
+    #live-camera-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.85;
+    }
+
+    #ar-overlay-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    /* Foreground HUD Content */
+    .top-bar, .alert-banner, .cluster-grid, .bottom-strip {
+      position: relative;
+      z-index: 10;
     }
 
     /* Top Status Bar */
@@ -59,28 +96,35 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
     }
 
     .brand-section {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .logo-text {
-      font-size: 1.2rem;
+      font-size: 1.1rem;
       font-weight: 900;
       letter-spacing: 2px;
       color: var(--accent);
     }
 
     .status-badge {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: 700;
       letter-spacing: 1px;
-      padding: 4px 10px;
-      border-radius: 6px;
+      padding: 3px 8px;
+      border-radius: 4px;
       border: 1px solid var(--border);
       background: var(--card-bg);
       text-transform: uppercase;
@@ -92,33 +136,32 @@
     .cond-low_light { color: #b388ff; border-color: rgba(179, 136, 255, 0.4); }
 
     .status-tag {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: 600;
-      padding: 4px 8px;
+      padding: 3px 8px;
       border-radius: 4px;
     }
-    .tag-gps { background: rgba(0, 255, 136, 0.15); color: var(--safe); }
-    .tag-sim { background: rgba(255, 184, 0, 0.2); color: var(--caution); }
-    .tag-warn { background: rgba(255, 51, 68, 0.2); color: var(--danger); }
+    .tag-gps { background: rgba(0, 255, 136, 0.2); color: var(--safe); }
+    .tag-sim { background: rgba(255, 184, 0, 0.25); color: var(--caution); }
+    .tag-warn { background: rgba(255, 51, 68, 0.25); color: var(--danger); }
 
     .top-actions {
       display: flex;
-      gap: 8px;
+      gap: 6px;
     }
 
     .hud-btn {
-      background: var(--card-bg);
+      background: rgba(25, 25, 32, 0.85);
       border: 1px solid var(--border);
       color: var(--text);
-      font-size: 0.8rem;
+      font-size: 0.75rem;
       font-weight: 600;
-      padding: 6px 14px;
+      padding: 6px 10px;
       border-radius: 6px;
       cursor: pointer;
-      transition: background 0.15s;
     }
     .hud-btn.active {
-      background: rgba(0, 217, 255, 0.2);
+      background: rgba(0, 217, 255, 0.25);
       border-color: var(--accent);
       color: var(--accent);
     }
@@ -127,46 +170,48 @@
     .alert-banner {
       width: 100%;
       text-align: center;
-      padding: 14px 20px;
+      padding: 10px 16px;
       border-radius: 8px;
       margin: 8px 0;
       border: 2px solid transparent;
-      background: var(--card-bg);
+      background: rgba(10, 10, 14, 0.85);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       transition: all 0.2s ease-in-out;
     }
 
     .alert-banner.level-safe {
-      border-color: rgba(0, 255, 136, 0.3);
+      border-color: rgba(0, 255, 136, 0.35);
       color: var(--safe);
     }
 
     .alert-banner.level-caution {
       border-color: var(--caution);
-      background: rgba(255, 184, 0, 0.15);
+      background: rgba(255, 184, 0, 0.2);
       color: var(--caution);
     }
 
     .alert-banner.level-danger_collision {
       border-color: var(--danger);
-      background: rgba(255, 51, 68, 0.3);
+      background: rgba(255, 51, 68, 0.35);
       color: #ffffff;
       animation: flashPulse 0.4s infinite alternate;
     }
 
     .alert-banner.level-danger_overdriving_vis {
       border-color: #ff9100;
-      background: rgba(255, 145, 0, 0.25);
+      background: rgba(255, 145, 0, 0.3);
       color: #ffb800;
       animation: flashPulse 0.8s infinite alternate;
     }
 
     @keyframes flashPulse {
       0% { opacity: 0.85; filter: brightness(1); }
-      100% { opacity: 1; filter: brightness(1.3); }
+      100% { opacity: 1; filter: brightness(1.4); }
     }
 
     .alert-title {
-      font-size: 1.15rem;
+      font-size: 1rem;
       font-weight: 800;
       letter-spacing: 1.5px;
       text-transform: uppercase;
@@ -176,26 +221,27 @@
     /* Core Instrumentation Cluster */
     .cluster-grid {
       display: grid;
-      grid-template-columns: 1fr 1.6fr 1fr;
-      gap: 16px;
+      grid-template-columns: 1fr 1.5fr 1fr;
+      gap: 12px;
       align-items: stretch;
       flex: 1;
-      margin: 12px 0;
+      margin: 6px 0;
     }
 
     .telemetry-card {
       background: var(--card-bg);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
+      border-radius: 10px;
+      padding: 14px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      position: relative;
     }
 
     .card-label {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: 700;
       letter-spacing: 1.5px;
       color: var(--text-muted);
@@ -212,16 +258,17 @@
     }
 
     .speed-number {
-      font-size: 5.5rem;
+      font-size: 4.8rem;
       font-weight: 900;
       line-height: 1;
       font-family: var(--font-mono);
       letter-spacing: -2px;
       color: #ffffff;
+      text-shadow: 0 0 16px rgba(0, 217, 255, 0.4);
     }
 
     .speed-unit {
-      font-size: 1.1rem;
+      font-size: 0.95rem;
       font-weight: 700;
       letter-spacing: 3px;
       color: var(--text-muted);
@@ -233,7 +280,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-around;
-      gap: 12px;
+      gap: 8px;
     }
 
     .metric-row {
@@ -243,13 +290,13 @@
     }
 
     .metric-name {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       color: var(--text-muted);
       font-weight: 600;
     }
 
     .metric-val {
-      font-size: 1.6rem;
+      font-size: 1.4rem;
       font-weight: 800;
       font-family: var(--font-mono);
     }
@@ -270,9 +317,13 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       color: var(--text-muted);
       font-family: var(--font-mono);
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      padding: 4px 10px;
+      border-radius: 6px;
     }
 
     /* Desk Simulation Drawer */
@@ -281,12 +332,15 @@
       bottom: 0;
       left: 0;
       right: 0;
-      background: #0e0e12;
+      background: rgba(14, 14, 18, 0.96);
+      backdrop-filter: blur(16px);
       border-top: 2px solid var(--accent);
-      padding: 16px 24px;
+      padding: 16px 20px;
       transform: translateY(100%);
       transition: transform 0.25s ease-out;
       z-index: 100;
+      max-height: 80vh;
+      overflow-y: auto;
     }
 
     #sim-drawer.open {
@@ -295,15 +349,15 @@
 
     .sim-controls-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-top: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 10px;
     }
 
     .sim-control-group {
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
     }
 
     .sim-control-group label {
@@ -317,6 +371,7 @@
     input[type=range] {
       accent-color: var(--accent);
       width: 100%;
+      height: 24px;
     }
 
     select {
@@ -325,13 +380,14 @@
       border: 1px solid var(--border);
       padding: 6px;
       border-radius: 4px;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
     }
 
     .scenario-buttons {
       display: flex;
-      gap: 8px;
-      margin-top: 12px;
+      gap: 6px;
+      margin-top: 10px;
+      flex-wrap: wrap;
     }
 
     .btn-scenario {
@@ -340,7 +396,7 @@
       color: #fff;
       font-size: 0.75rem;
       font-weight: 700;
-      padding: 6px 12px;
+      padding: 6px 10px;
       border-radius: 6px;
       cursor: pointer;
     }
@@ -353,18 +409,18 @@
     #splash-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.95);
+      background: #000000;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
       z-index: 200;
-      padding: 24px;
+      padding: 20px;
       text-align: center;
     }
 
     #splash-overlay.hidden {
-      display: none;
+      display: none !important;
     }
 
     .splash-title {
@@ -376,17 +432,17 @@
     }
 
     .splash-subtitle {
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       color: var(--text-muted);
-      margin-bottom: 24px;
-      max-width: 500px;
-      line-height: 1.5;
+      margin-bottom: 20px;
+      max-width: 460px;
+      line-height: 1.4;
     }
 
     .splash-badges {
       display: flex;
-      gap: 12px;
-      margin-bottom: 32px;
+      gap: 8px;
+      margin-bottom: 28px;
       flex-wrap: wrap;
       justify-content: center;
     }
@@ -394,7 +450,7 @@
     .badge-item {
       background: rgba(0, 217, 255, 0.1);
       border: 1px solid rgba(0, 217, 255, 0.3);
-      padding: 6px 12px;
+      padding: 6px 10px;
       border-radius: 6px;
       font-size: 0.75rem;
       color: var(--accent);
@@ -407,16 +463,15 @@
       font-size: 1.1rem;
       font-weight: 800;
       letter-spacing: 1px;
-      padding: 14px 40px;
+      padding: 16px 36px;
       border-radius: 8px;
       border: none;
       cursor: pointer;
-      box-shadow: 0 0 20px rgba(0, 255, 136, 0.4);
-      transition: transform 0.1s, box-shadow 0.1s;
+      box-shadow: 0 0 24px rgba(0, 255, 136, 0.5);
     }
 
     .btn-launch:active {
-      transform: scale(0.98);
+      transform: scale(0.96);
     }
   </style>
 </head>
@@ -426,15 +481,15 @@
   <div id="splash-overlay">
     <div class="splash-title">DATUM ADAS</div>
     <div class="splash-subtitle">
-      Zero-Record Road Telemetry & Precision Collision Warning.<br>
-      Automotive-grade deterministic kinematics running 100% locally.
+      Zero-Record Road Telemetry & Smart Camera ADAS.<br>
+      High-precision deterministic kinematics running 100% locally.
     </div>
 
     <div class="splash-badges">
       <div class="badge-item">🛡️ Zero Video Recording</div>
-      <div class="badge-item">⚡ 100% In-Memory (160×120)</div>
+      <div class="badge-item">📷 160×120 In-Memory Engine</div>
       <div class="badge-item">🛰️ Satellite GPS</div>
-      <div class="badge-item">📴 100% Offline</div>
+      <div class="badge-item">📴 100% Offline PWA</div>
     </div>
 
     <button id="btn-main-start" class="btn-launch">ACTIVATE ADAS & SOUND</button>
@@ -443,6 +498,12 @@
   <!-- Primary Automotive HUD Viewport -->
   <div id="hud-viewport">
 
+    <!-- Camera Viewfinder & AR Overlay -->
+    <div id="camera-viewport">
+      <video id="live-camera-video" playsinline webkit-playsinline muted autoplay></video>
+      <canvas id="ar-overlay-canvas"></canvas>
+    </div>
+
     <!-- Top Status Bar -->
     <header class="top-bar">
       <div class="brand-section">
@@ -450,6 +511,7 @@
         <span id="hud-vehicle-badge" class="status-badge">SEDAN (1.25m)</span>
         <span id="hud-road-cond" class="status-badge cond-clear">CLEAR</span>
         <span id="hud-friction" class="status-badge">μ 0.75</span>
+        <span id="hud-camera-status" class="status-tag tag-warn">CAM: CONNECTING</span>
         <span id="hud-gps-status" class="status-tag tag-warn">SEARCHING GPS</span>
       </div>
 
@@ -514,15 +576,15 @@
 
     <!-- Bottom Strip -->
     <footer class="bottom-strip">
-      <span>EPHEMERAL OFFSCREEN CANVAS: 160×120 @ 10 Hz</span>
-      <span>DETERMINISTIC RSS KINEMATICS • ZERO VIDEO RECORDING</span>
+      <span>EPHEMERAL SAMPLING: 160×120 @ 10 Hz • ZERO DISK STORAGE</span>
+      <span>DETERMINISTIC KINEMATICS • 100% OFFLINE</span>
     </footer>
   </div>
 
   <!-- Desk Simulation Drawer -->
   <aside id="sim-drawer">
     <div style="display: flex; justify-content: space-between; align-items: center;">
-      <button id="btn-sim-toggle" class="hud-btn" style="background: #2a2a36; font-size: 0.9rem;">🎮 Sim Mode: OFF</button>
+      <button id="btn-sim-toggle" class="hud-btn" style="background: #2a2a36; font-size: 0.85rem;">🎮 Sim Mode: OFF</button>
       <button id="btn-sim-close" class="hud-btn">✕ Close Drawer</button>
     </div>
 
@@ -568,19 +630,6 @@
       </div>
     </div>
   </aside>
-
-  <!-- Wiring Drawer Toggle Script -->
-  <script>
-    const drawerToggle = document.getElementById('btn-sim-drawer-toggle');
-    const drawerClose = document.getElementById('btn-sim-close');
-    const drawer = document.getElementById('sim-drawer');
-    if (drawerToggle && drawer) {
-      drawerToggle.addEventListener('click', () => drawer.classList.toggle('open'));
-    }
-    if (drawerClose && drawer) {
-      drawerClose.addEventListener('click', () => drawer.classList.remove('open'));
-    }
-  </script>
 
   <!-- Main ES Module Script -->
   <script type="module" src="./src/main.js"></script>
