@@ -9,8 +9,8 @@
   <style>
     :root {
       --bg: #000000;
-      --card-bg: rgba(14, 14, 18, 0.75);
-      --border: rgba(255, 255, 255, 0.12);
+      --card-bg: rgba(14, 14, 18, 0.7);
+      --border: rgba(255, 255, 255, 0.14);
       --text: #ffffff;
       --text-muted: #9e9ea6;
       --safe: #00ff88;
@@ -44,6 +44,15 @@
       transform: scaleX(-1);
     }
 
+    /* Minimal HUD / Full Camera View */
+    .minimal-hud .cluster-grid {
+      opacity: 0.15;
+      transition: opacity 0.25s ease-in-out;
+    }
+    .minimal-hud:active .cluster-grid {
+      opacity: 0.9;
+    }
+
     /* Main Viewport Container */
     #hud-viewport {
       position: relative;
@@ -52,19 +61,19 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 12px 18px;
+      padding: 10px 14px;
       transition: transform 0.25s ease-in-out;
       overflow: hidden;
     }
 
-    /* Camera & AR Viewfinder Background */
+    /* Camera Viewfinder & AR Background */
     #camera-viewport {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
       z-index: 0;
-      background: radial-gradient(circle at center, #111118 0%, #000000 100%);
+      background: #000000;
       overflow: hidden;
     }
 
@@ -74,7 +83,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      opacity: 0.85;
+      opacity: 0.95;
     }
 
     #ar-overlay-canvas {
@@ -83,6 +92,7 @@
       width: 100%;
       height: 100%;
       pointer-events: none;
+      z-index: 1;
     }
 
     /* Foreground HUD Content */
@@ -96,11 +106,11 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 8px;
-      background: rgba(0, 0, 0, 0.6);
+      gap: 6px;
+      background: rgba(0, 0, 0, 0.7);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
-      padding: 6px 12px;
+      padding: 6px 10px;
       border-radius: 8px;
       border: 1px solid var(--border);
     }
@@ -108,7 +118,7 @@
     .brand-section {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }
 
@@ -141,17 +151,18 @@
       padding: 3px 8px;
       border-radius: 4px;
     }
-    .tag-gps { background: rgba(0, 255, 136, 0.2); color: var(--safe); }
-    .tag-sim { background: rgba(255, 184, 0, 0.25); color: var(--caution); }
-    .tag-warn { background: rgba(255, 51, 68, 0.25); color: var(--danger); }
+    .tag-gps { background: rgba(0, 255, 136, 0.25); color: var(--safe); }
+    .tag-sim { background: rgba(255, 184, 0, 0.3); color: var(--caution); }
+    .tag-warn { background: rgba(255, 51, 68, 0.3); color: var(--danger); }
 
     .top-actions {
       display: flex;
       gap: 6px;
+      align-items: center;
     }
 
     .hud-btn {
-      background: rgba(25, 25, 32, 0.85);
+      background: rgba(25, 25, 32, 0.9);
       border: 1px solid var(--border);
       color: var(--text);
       font-size: 0.75rem;
@@ -160,19 +171,18 @@
       border-radius: 6px;
       cursor: pointer;
     }
-    .hud-btn.active {
-      background: rgba(0, 217, 255, 0.25);
+    .hud-btn:active {
+      background: rgba(0, 217, 255, 0.3);
       border-color: var(--accent);
-      color: var(--accent);
     }
 
     /* Dynamic Hazard Alert Banner */
     .alert-banner {
       width: 100%;
       text-align: center;
-      padding: 10px 16px;
+      padding: 10px 14px;
       border-radius: 8px;
-      margin: 8px 0;
+      margin: 6px 0;
       border: 2px solid transparent;
       background: rgba(10, 10, 14, 0.85);
       backdrop-filter: blur(8px);
@@ -181,26 +191,26 @@
     }
 
     .alert-banner.level-safe {
-      border-color: rgba(0, 255, 136, 0.35);
+      border-color: rgba(0, 255, 136, 0.4);
       color: var(--safe);
     }
 
     .alert-banner.level-caution {
       border-color: var(--caution);
-      background: rgba(255, 184, 0, 0.2);
+      background: rgba(255, 184, 0, 0.25);
       color: var(--caution);
     }
 
     .alert-banner.level-danger_collision {
       border-color: var(--danger);
-      background: rgba(255, 51, 68, 0.35);
+      background: rgba(255, 51, 68, 0.45);
       color: #ffffff;
       animation: flashPulse 0.4s infinite alternate;
     }
 
     .alert-banner.level-danger_overdriving_vis {
       border-color: #ff9100;
-      background: rgba(255, 145, 0, 0.3);
+      background: rgba(255, 145, 0, 0.35);
       color: #ffb800;
       animation: flashPulse 0.8s infinite alternate;
     }
@@ -211,7 +221,7 @@
     }
 
     .alert-title {
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 800;
       letter-spacing: 1.5px;
       text-transform: uppercase;
@@ -222,10 +232,10 @@
     .cluster-grid {
       display: grid;
       grid-template-columns: 1fr 1.5fr 1fr;
-      gap: 12px;
+      gap: 10px;
       align-items: stretch;
       flex: 1;
-      margin: 6px 0;
+      margin: 4px 0;
     }
 
     .telemetry-card {
@@ -234,7 +244,7 @@
       -webkit-backdrop-filter: blur(8px);
       border: 1px solid var(--border);
       border-radius: 10px;
-      padding: 14px;
+      padding: 12px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -258,7 +268,7 @@
     }
 
     .speed-number {
-      font-size: 4.8rem;
+      font-size: 4.5rem;
       font-weight: 900;
       line-height: 1;
       font-family: var(--font-mono);
@@ -280,7 +290,7 @@
       display: flex;
       flex-direction: column;
       justify-content: space-around;
-      gap: 8px;
+      gap: 6px;
     }
 
     .metric-row {
@@ -296,7 +306,7 @@
     }
 
     .metric-val {
-      font-size: 1.4rem;
+      font-size: 1.35rem;
       font-weight: 800;
       font-family: var(--font-mono);
     }
@@ -320,7 +330,7 @@
       font-size: 0.7rem;
       color: var(--text-muted);
       font-family: var(--font-mono);
-      background: rgba(0, 0, 0, 0.6);
+      background: rgba(0, 0, 0, 0.7);
       backdrop-filter: blur(8px);
       padding: 4px 10px;
       border-radius: 6px;
@@ -481,7 +491,7 @@
   <div id="splash-overlay">
     <div class="splash-title">DATUM ADAS</div>
     <div class="splash-subtitle">
-      Zero-Record Road Telemetry & Smart Camera ADAS.<br>
+      Zero-Record Road Telemetry & Smart Live Cam HUD.<br>
       High-precision deterministic kinematics running 100% locally.
     </div>
 
@@ -492,7 +502,7 @@
       <div class="badge-item">📴 100% Offline PWA</div>
     </div>
 
-    <button id="btn-main-start" class="btn-launch">ACTIVATE ADAS & SOUND</button>
+    <button id="btn-main-start" class="btn-launch">ACTIVATE ADAS & CAM</button>
   </div>
 
   <!-- Primary Automotive HUD Viewport -->
@@ -511,14 +521,16 @@
         <span id="hud-vehicle-badge" class="status-badge">SEDAN (1.25m)</span>
         <span id="hud-road-cond" class="status-badge cond-clear">CLEAR</span>
         <span id="hud-friction" class="status-badge">μ 0.75</span>
-        <span id="hud-camera-status" class="status-tag tag-warn">CAM: CONNECTING</span>
+        <span id="hud-camera-status" class="status-tag tag-warn">📷 CAM: CONNECTING</span>
+        <button id="btn-cam-retry" class="hud-btn" style="display:none; background:#ff3344; color:#fff;">⚠️ Enable Cam</button>
         <span id="hud-gps-status" class="status-tag tag-warn">SEARCHING GPS</span>
       </div>
 
       <div class="top-actions">
-        <button id="btn-mirror-toggle" class="hud-btn">🪞 Mirror HUD: OFF</button>
-        <button id="btn-mute-toggle" class="hud-btn">🔊 Sound: ACTIVE</button>
-        <button id="btn-sim-drawer-toggle" class="hud-btn">⚙️ Sim Controls</button>
+        <button id="btn-view-toggle" class="hud-btn">👁️ Full Cam View</button>
+        <button id="btn-mirror-toggle" class="hud-btn">🪞 Mirror HUD</button>
+        <button id="btn-mute-toggle" class="hud-btn">🔊 Sound</button>
+        <button id="btn-sim-drawer-toggle" class="hud-btn">⚙️ Sim</button>
       </div>
     </header>
 

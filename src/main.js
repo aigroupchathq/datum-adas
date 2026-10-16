@@ -9,7 +9,6 @@ import { requestWakeLock } from './sensors/wakeLock.js';
 import { initAudio } from './ui/audioAlerts.js';
 import { initHud } from './ui/hud.js';
 import { initSimControls } from './ui/simControls.js';
-import { telemetryState } from './state.js';
 
 // Register 100% Offline Service Worker
 if ('serviceWorker' in navigator) {
@@ -21,41 +20,50 @@ if ('serviceWorker' in navigator) {
 }
 
 function bootstrap() {
-  // 1. Initialize HUD & Simulation controls
   initHud();
   initSimControls();
 
   const startBtn = document.getElementById('btn-main-start');
   const splashOverlay = document.getElementById('splash-overlay');
+  const camRetryBtn = document.getElementById('btn-cam-retry');
 
-  if (startBtn && splashOverlay) {
-    const handleLaunch = async (e) => {
-      if (e) e.preventDefault();
+  let isLaunching = false;
 
-      // Immediately hide splash overlay so user sees the HUD right away
+  const handleLaunch = (e) => {
+    if (e) e.preventDefault();
+    if (isLaunching) return;
+    isLaunching = true;
+
+    // Immediately dismiss splash screen
+    if (splashOverlay) {
       splashOverlay.classList.add('hidden');
+    }
 
-      // 1. Mandatory User Gesture Unlock for Web Audio API
-      initAudio();
+    // 1. Invoke camera immediately in the direct user gesture tick (Critical for iOS Safari!)
+    initCamera();
 
-      // 2. Request Screen WakeLock
-      requestWakeLock().catch(() => {});
+    // 2. Unlock Web Audio API & Screen WakeLock
+    initAudio();
+    requestWakeLock().catch(() => {});
 
-      // 3. Initialize GPS (offline satellite GNSS)
-      initGps();
+    // 3. Initialize GPS (offline satellite GNSS)
+    initGps();
+  };
 
-      // 4. Initialize Camera Stream (with fallback to sim/demo if unavailable)
-      initCamera().catch(err => {
-        console.warn('Camera launch warning:', err);
-      });
-    };
-
+  if (startBtn) {
     startBtn.addEventListener('click', handleLaunch);
     startBtn.addEventListener('touchend', handleLaunch);
   }
+
+  // Allow manual camera retry at any time
+  if (camRetryBtn) {
+    camRetryBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      initCamera();
+    });
+  }
 }
 
-// Ensure execution whether DOM is already loaded or still parsing
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', bootstrap);
 } else {

@@ -23,6 +23,8 @@ let hudContainerEl = null;
 let gpsStatusEl = null;
 let vehicleBadgeEl = null;
 let cameraStatusEl = null;
+let camRetryBtnEl = null;
+let viewToggleBtnEl = null;
 
 // AR Overlay Canvas
 let arCanvas = null;
@@ -43,6 +45,18 @@ export function initHud() {
   gpsStatusEl = document.getElementById('hud-gps-status');
   vehicleBadgeEl = document.getElementById('hud-vehicle-badge');
   cameraStatusEl = document.getElementById('hud-camera-status');
+  camRetryBtnEl = document.getElementById('btn-cam-retry');
+  viewToggleBtnEl = document.getElementById('btn-view-toggle');
+
+  if (viewToggleBtnEl) {
+    viewToggleBtnEl.addEventListener('click', () => {
+      telemetryState.isMinimalHUD = !telemetryState.isMinimalHUD;
+      viewToggleBtnEl.textContent = telemetryState.isMinimalHUD ? '👁️ Full Cam View' : '📊 Classic HUD';
+      if (hudContainerEl) {
+        hudContainerEl.classList.toggle('minimal-hud', telemetryState.isMinimalHUD);
+      }
+    });
+  }
 
   arCanvas = document.getElementById('ar-overlay-canvas');
   if (arCanvas) {
@@ -93,7 +107,7 @@ function renderState() {
     vehicleBadgeEl.textContent = `${telemetryState.vehicleClass} (${telemetryState.cameraHeightM}m)`;
   }
 
-  // 4. GPS & Camera Status Indicators
+  // 4. GPS Status
   if (gpsStatusEl) {
     if (telemetryState.isSimMode) {
       gpsStatusEl.textContent = 'SIM GPS';
@@ -107,20 +121,34 @@ function renderState() {
     }
   }
 
+  // 5. Camera Status & Retry Prompt
   if (cameraStatusEl) {
     if (telemetryState.cameraStatus === 'ACTIVE') {
-      cameraStatusEl.textContent = 'CAM: LIVE 10Hz';
+      const res = telemetryState.cameraResolution ? ` (${telemetryState.cameraResolution})` : ' 10Hz';
+      cameraStatusEl.textContent = `📷 CAM: LIVE${res}`;
       cameraStatusEl.className = 'status-tag tag-gps';
-    } else if (telemetryState.cameraStatus === 'DENIED' || telemetryState.cameraStatus === 'UNSUPPORTED' || telemetryState.isSimMode) {
-      cameraStatusEl.textContent = 'CAM: SIMULATED';
+      if (camRetryBtnEl) camRetryBtnEl.style.display = 'none';
+    } else if (telemetryState.cameraStatus === 'DENIED' || telemetryState.cameraStatus === 'ERROR') {
+      cameraStatusEl.textContent = '📷 CAM: BLOCKED';
+      cameraStatusEl.className = 'status-tag tag-warn';
+      if (camRetryBtnEl) {
+        camRetryBtnEl.style.display = 'inline-block';
+        camRetryBtnEl.textContent = '⚠️ Tap to Enable Cam';
+      }
+    } else if (telemetryState.cameraStatus === 'UNSUPPORTED' || telemetryState.isSimMode) {
+      cameraStatusEl.textContent = '📷 CAM: DEMO / SIM';
       cameraStatusEl.className = 'status-tag tag-sim';
+      if (camRetryBtnEl) {
+        camRetryBtnEl.style.display = 'inline-block';
+        camRetryBtnEl.textContent = '📷 Try Live Cam';
+      }
     } else {
-      cameraStatusEl.textContent = 'CAM: CONNECTING';
+      cameraStatusEl.textContent = '📷 CAM: CONNECTING...';
       cameraStatusEl.className = 'status-tag tag-warn';
     }
   }
 
-  // 5. Dynamic Hazard Alert Banner
+  // 6. Dynamic Hazard Alert Banner
   if (alertBannerEl && alertMessageEl) {
     const level = telemetryState.alertLevel;
     alertBannerEl.className = `alert-banner level-${level.toLowerCase()}`;
@@ -141,7 +169,7 @@ function renderState() {
     }
   }
 
-  // 6. Windshield Mirroring
+  // 7. Windshield Mirroring
   if (hudContainerEl) {
     if (telemetryState.isMirroredHUD) {
       hudContainerEl.classList.add('mirror-hud');
@@ -167,15 +195,14 @@ function renderArOverlay() {
 
   arCtx.clearRect(0, 0, w, h);
 
-  // Scalers from 160x120 vision space to display screen
   const scaleX = w / 160;
   const scaleY = h / 120;
   const horizonPx = telemetryState.horizonY * scaleY;
 
   // 1. Vanishing Point Horizon Line
-  arCtx.strokeStyle = 'rgba(0, 217, 255, 0.4)';
-  arCtx.lineWidth = 1;
-  arCtx.setLineDash([6, 6]);
+  arCtx.strokeStyle = 'rgba(0, 217, 255, 0.5)';
+  arCtx.lineWidth = 1.5;
+  arCtx.setLineDash([8, 6]);
   arCtx.beginPath();
   arCtx.moveTo(0, horizonPx);
   arCtx.lineTo(w, horizonPx);
@@ -183,24 +210,21 @@ function renderArOverlay() {
   arCtx.setLineDash([]);
 
   // 2. Optical Lane Corridor Guide Lines (Trapezoid)
-  arCtx.strokeStyle = 'rgba(0, 255, 136, 0.25)';
-  arCtx.lineWidth = 2;
+  arCtx.strokeStyle = 'rgba(0, 255, 136, 0.35)';
+  arCtx.lineWidth = 2.5;
   arCtx.beginPath();
-  // Left lane line
   arCtx.moveTo(w * 0.45, horizonPx);
-  arCtx.lineTo(w * 0.15, h);
-  // Right lane line
+  arCtx.lineTo(w * 0.10, h);
   arCtx.moveTo(w * 0.55, horizonPx);
-  arCtx.lineTo(w * 0.85, h);
+  arCtx.lineTo(w * 0.90, h);
   arCtx.stroke();
 
   // 3. Lead Obstacle AR Target Bounding Box
   let bbox = telemetryState.obstacleBbox;
 
-  // If in sim mode, construct synthetic visual bbox matching targetDistanceM
   if (telemetryState.isSimMode && telemetryState.targetDistanceM < 120) {
     const simNorm = Math.max(0, Math.min(1, (120 - telemetryState.targetDistanceM) / 115));
-    const boxW = 16 + (simNorm * 36);
+    const boxW = 16 + (simNorm * 38);
     const boxH = boxW * 0.65;
     const boxY = (telemetryState.horizonY + 4) + (simNorm * (110 - telemetryState.horizonY - 4));
     bbox = {
@@ -217,30 +241,29 @@ function renderArOverlay() {
     const bw = bbox.width * scaleX;
     const bh = bbox.height * scaleY;
 
-    // Determine target color based on alert level
-    let targetColor = '#00ff88'; // Safe
+    let targetColor = '#00ff88';
     if (telemetryState.alertLevel === 'DANGER_COLLISION') {
-      targetColor = '#ff3344'; // Danger
+      targetColor = '#ff3344';
     } else if (telemetryState.alertLevel === 'CAUTION') {
-      targetColor = '#ffb800'; // Caution
+      targetColor = '#ffb800';
     }
 
-    // Draw Target Box Corners (High-tech HUD reticle)
+    // High-tech target box
     arCtx.strokeStyle = targetColor;
     arCtx.lineWidth = 3;
     arCtx.strokeRect(bx, by, bw, bh);
 
-    // Target Info Pill above vehicle
-    arCtx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-    arCtx.fillRect(bx, Math.max(0, by - 24), Math.max(90, bw), 20);
+    // Target pill badge
+    arCtx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    arCtx.fillRect(bx, Math.max(0, by - 22), Math.max(90, bw), 20);
 
     arCtx.fillStyle = targetColor;
     arCtx.font = 'bold 12px monospace';
-    arCtx.fillText(`${telemetryState.targetDistanceM}m`, bx + 4, Math.max(14, by - 10));
+    arCtx.fillText(`${telemetryState.targetDistanceM}m`, bx + 6, Math.max(14, by - 8));
 
     if (telemetryState.timeToCollisionSec < 99 && telemetryState.speedMph > 2) {
       arCtx.fillStyle = '#ff5252';
-      arCtx.fillText(`TTC ${telemetryState.timeToCollisionSec}s`, bx + 42, Math.max(14, by - 10));
+      arCtx.fillText(`TTC ${telemetryState.timeToCollisionSec}s`, bx + 48, Math.max(14, by - 8));
     }
   }
 }

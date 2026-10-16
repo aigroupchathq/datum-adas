@@ -7,8 +7,11 @@ export const telemetryState = {
   cameraHeightM: 1.25,         // Camera optical elevation above ground plane
   horizonY: 54,                // Vanishing point row (0 to 120, default ~45% height)
   sensorConfidence: 'CALIBRATING', // 'CALIBRATING' | 'CONFIDENT' | 'DEGRADED' | 'OFFLINE'
-  cameraStatus: 'CONNECTING',  // 'CONNECTING' | 'ACTIVE' | 'DENIED' | 'SIMULATED'
+  cameraStatus: 'CONNECTING',  // 'CONNECTING' | 'ACTIVE' | 'DENIED' | 'UNSUPPORTED' | 'ERROR' | 'SIMULATED'
+  cameraError: null,           // Descriptive error message if camera fails
+  cameraResolution: null,      // e.g. "1280x720"
   isMirroredHUD: false,        // Windshield reflection flip mode
+  isMinimalHUD: false,         // Full-bleed camera view toggle
 
   // GPS Layer (1 Hz)
   speedMps: 0,

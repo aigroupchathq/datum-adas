@@ -12,6 +12,7 @@ let videoElement = null;
 let offscreenCanvas = null;
 let offscreenCtx = null;
 let loopIntervalId = null;
+let isInitializing = false;
 
 const FRAME_WIDTH = 160;
 const FRAME_HEIGHT = 120;
@@ -21,7 +22,8 @@ const TICK_RATE_MS = 100; // 10 Hz automotive rate
  * Initializes mobile camera stream and in-memory sampling canvas
  */
 export async function initCamera() {
-  if (telemetryState.isRunning) return;
+  if (isInitializing) return;
+  isInitializing = true;
 
   // 1. Prepare in-memory sampling canvas (160x120)
   if (!offscreenCanvas) {
@@ -39,7 +41,7 @@ export async function initCamera() {
     document.body.appendChild(videoElement);
   }
 
-  // Mandatory mobile Safari attributes
+  // Mandatory mobile Safari & Chrome properties
   videoElement.setAttribute('playsinline', '');
   videoElement.setAttribute('webkit-playsinline', '');
   videoElement.setAttribute('muted', '');
@@ -48,67 +50,86 @@ export async function initCamera() {
   videoElement.muted = true;
   videoElement.autoplay = true;
 
-  // 3. Request Camera Stream with fallback
+  // 3. Verify getUserMedia support
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    console.warn('getUserMedia not supported in this browser environment. Using demo/sim mode.');
-    enableSimFallback('UNSUPPORTED');
+    const errorMsg = 'Camera API not supported or blocked by browser settings.';
+    console.warn(errorMsg);
+    enableSimFallback('UNSUPPORTED', errorMsg);
+    isInitializing = false;
+    return;
+  }
+
+  // 4. Multi-tier constraints fallback (Rear Camera -> User Camera -> Generic Video)
+  const constraintTiers = [
+    { video: { facingMode: { ideal: 'environment' } }, audio: false },
+    { video: { facingMode: 'environment' }, audio: false },
+    { video: { facingMode: 'user' }, audio: false },
+    { video: true, audio: false }
+  ];
+
+  let stream = null;
+  let lastError = null;
+
+  for (const constraints of constraintTiers) {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      if (stream) break;
+    } catch (err) {
+      lastError = err;
+      console.warn('Constraint tier failed, trying next tier...', constraints, err.name, err.message);
+    }
+  }
+
+  if (!stream) {
+    const errText = lastError ? `${lastError.name}: ${lastError.message}` : 'Permission denied or camera unavailable';
+    console.error('All camera constraint tiers failed:', errText);
+    enableSimFallback('DENIED', errText);
+    isInitializing = false;
     return;
   }
 
   try {
-    let stream = null;
-    try {
-      // Primary: Environment / Rear camera
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: 'environment' },
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          frameRate: { ideal: 30 }
-        },
-        audio: false
-      });
-    } catch (e1) {
-      console.warn('Rear camera constraint failed, retrying with basic video constraint...', e1);
-      // Fallback: Any available camera
-      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-    }
-
     videoElement.srcObject = stream;
 
-    // Wait for video metadata to load before playing (avoids iOS AbortError)
-    await new Promise((resolve) => {
-      if (videoElement.readyState >= HTMLMediaElement.HAVE_METADATA) {
-        resolve();
-      } else {
-        videoElement.onloadedmetadata = () => resolve();
-        setTimeout(resolve, 1500); // safety timeout
-      }
-    });
+    // Attach stream play handlers
+    videoElement.onloadedmetadata = () => {
+      telemetryState.cameraResolution = `${videoElement.videoWidth}x${videoElement.videoHeight}`;
+      videoElement.play().catch(e => console.warn('video.play() rejected:', e));
+    };
 
+    videoElement.onplaying = () => {
+      telemetryState.cameraStatus = 'ACTIVE';
+      telemetryState.cameraError = null;
+      telemetryState.sensorConfidence = 'CONFIDENT';
+      telemetryState.isSimMode = false;
+    };
+
+    // Attempt direct play (for browsers that already have metadata)
     try {
       await videoElement.play();
     } catch (playErr) {
-      console.warn('video.play() auto-play policy warning:', playErr);
+      console.warn('Initial play() prompt:', playErr.message);
     }
 
-    // 4. Start 10 Hz sampling loop
+    // 5. Start 10 Hz sampling loop
     if (!loopIntervalId) {
       loopIntervalId = setInterval(sampleAndAnalyze, TICK_RATE_MS);
     }
 
     telemetryState.isRunning = true;
     telemetryState.cameraStatus = 'ACTIVE';
-    telemetryState.sensorConfidence = 'CONFIDENT';
-    telemetryState.isSimMode = false;
+    telemetryState.cameraError = null;
   } catch (err) {
-    console.warn('Camera access denied or failed. Engaging simulation mode:', err.message);
-    enableSimFallback('DENIED');
+    console.error('Camera attachment failed:', err);
+    enableSimFallback('ERROR', err.message);
+  } finally {
+    isInitializing = false;
   }
 }
 
-function enableSimFallback(reason) {
-  telemetryState.cameraStatus = reason;
+function enableSimFallback(status, errorMsg = '') {
+  telemetryState.cameraStatus = status;
+  telemetryState.cameraError = errorMsg;
   telemetryState.sensorConfidence = 'DEGRADED';
   telemetryState.isSimMode = true;
 
@@ -154,4 +175,5 @@ export function stopCamera() {
   }
 
   telemetryState.isRunning = false;
+  telemetryState.cameraStatus = 'OFFLINE';
 }
