@@ -217,6 +217,8 @@
     .pill-sim {
       color: #0a84ff;
       border-color: rgba(10, 132, 255, 0.3);
+    }
+
     .controls-group {
       display: flex;
       align-items: center;
@@ -224,23 +226,30 @@
     }
 
     .cockpit-toggle {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 7px;
-      background: rgba(22, 24, 30, 0.75);
+      gap: 6px;
+      background: rgba(18, 20, 26, 0.75);
       border: 0.5px solid rgba(255, 255, 255, 0.14);
       color: rgba(255, 255, 255, 0.88);
-      font-size: 0.70rem;
-      font-weight: 600;
-      letter-spacing: 0.8px;
-      padding: 6px 13px;
-      border-radius: 8px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      font-size: 0.65rem;
+      font-weight: 500;
+      letter-spacing: 1.1px;
+      text-transform: uppercase;
+      padding: 6px 12px;
+      border-radius: 999px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35), inset 0 0.5px 0.5px rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      cursor: pointer;
       transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      white-space: nowrap;
     }
 
     .cockpit-toggle:hover {
-      background: rgba(35, 38, 48, 0.85);
+      background: rgba(30, 34, 45, 0.85);
       border-color: rgba(255, 255, 255, 0.28);
       color: #ffffff;
     }
@@ -251,14 +260,14 @@
     }
 
     .cockpit-toggle.active {
-      background: rgba(255, 255, 255, 0.14);
-      border-color: rgba(255, 255, 255, 0.35);
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(48, 209, 88, 0.45);
       color: #ffffff;
     }
 
     .toggle-icon {
-      font-size: 0.78rem;
-      opacity: 0.9;
+      font-size: 0.72rem;
+      opacity: 0.85;
     }
 
     .toggle-text {
@@ -276,7 +285,7 @@
     .cockpit-toggle.active .toggle-led,
     .toggle-led.led-active {
       background: var(--accent-safe);
-      box-shadow: 0 0 6px rgba(48, 209, 88, 0.8);
+      box-shadow: 0 0 6px rgba(48, 209, 88, 0.85);
     }
 
     .pill-btn {
@@ -576,89 +585,171 @@
     #splash-overlay {
       position: fixed;
       inset: 0;
-      background: #000000;
+      background: radial-gradient(circle at center, #0f1218 0%, #000000 100%);
       display: flex;
-      flex-direction: column;
       justify-content: center;
       align-items: center;
       z-index: 9999;
-      padding: 30px;
+      padding: 24px;
       text-align: center;
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      transition: opacity 0.3s ease, visibility 0.3s ease;
     }
 
     #splash-overlay.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
       display: none !important;
     }
 
+    .splash-content {
+      max-width: 440px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .splash-eyebrow {
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 3.5px;
+      color: rgba(255, 255, 255, 0.4);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
     .splash-brand {
-      font-size: 3rem;
+      font-size: 2.1rem;
       font-weight: 300;
-      letter-spacing: 8px;
+      letter-spacing: 7px;
       color: #ffffff;
       margin-bottom: 8px;
+      white-space: nowrap;
     }
 
     .splash-tagline {
-      font-size: 0.95rem;
+      font-size: 0.82rem;
       font-weight: 400;
       color: var(--text-secondary);
-      max-width: 440px;
-      line-height: 1.6;
-      margin-bottom: 32px;
-      letter-spacing: 0.3px;
-    }
-
-    .splash-spec-pills {
-      display: flex;
-      gap: 10px;
-      margin-bottom: 36px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-
-    .spec-pill {
-      background: rgba(255, 255, 255, 0.05);
-      border: 0.5px solid rgba(255, 255, 255, 0.1);
-      padding: 6px 14px;
-      border-radius: 20px;
-      font-size: 0.75rem;
-      color: var(--text-secondary);
-      font-weight: 400;
+      max-width: 380px;
+      line-height: 1.5;
+      margin-bottom: 28px;
+      letter-spacing: 0.5px;
     }
 
     .btn-engage {
-      background: #ffffff;
-      color: #000000;
-      font-size: 0.95rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 0.5px solid rgba(255, 255, 255, 0.28);
+      color: #ffffff;
+      font-size: 0.78rem;
       font-weight: 600;
-      letter-spacing: 1px;
-      padding: 16px 42px;
-      border-radius: 30px;
-      border: none;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 13px 32px;
+      border-radius: 999px;
       cursor: pointer;
-      box-shadow: 0 4px 24px rgba(255, 255, 255, 0.15);
-      transition: transform 0.15s ease, opacity 0.15s ease;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.15);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn-engage:hover {
+      background: rgba(255, 255, 255, 0.18);
+      border-color: rgba(255, 255, 255, 0.45);
+      box-shadow: 0 6px 30px rgba(255, 255, 255, 0.12), inset 0 1px 1px rgba(255, 255, 255, 0.3);
     }
 
     .btn-engage:active {
-      transform: scale(0.97);
-      opacity: 0.9;
+      transform: scale(0.96);
+      background: rgba(255, 255, 255, 0.25);
+    }
+
+    .engage-led {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-safe);
+      box-shadow: 0 0 8px var(--accent-safe);
     }
 
     /* Mobile Responsive Adaptation */
     @media (max-width: 768px) {
+      .hud-header {
+        padding: 6px 10px;
+        border-radius: 20px;
+      }
+      .brand-mark {
+        font-size: 0.78rem;
+        letter-spacing: 1.8px;
+      }
+      .status-group .pill-chip:nth-child(n+3) {
+        display: none;
+      }
+      .controls-group {
+        gap: 5px;
+      }
+      .cockpit-toggle {
+        padding: 5px 8px;
+        font-size: 0.58rem;
+        gap: 4px;
+        letter-spacing: 0.8px;
+      }
+      .splash-brand {
+        font-size: 1.55rem;
+        letter-spacing: 5px;
+      }
+      .splash-tagline {
+        font-size: 0.76rem;
+        margin-bottom: 22px;
+      }
+      .btn-engage {
+        padding: 12px 26px;
+        font-size: 0.72rem;
+      }
       .hud-bottom-dock {
-        grid-template-columns: 1fr;
-        gap: 10px;
+        grid-template-columns: 85px 1fr 105px;
+        gap: 8px;
+        padding-bottom: 2px;
       }
       .dock-card {
-        padding: 10px 14px;
+        padding: 8px 10px;
+        border-radius: 14px;
       }
       .speed-digits {
-        font-size: 3.2rem;
+        font-size: 2.1rem;
       }
-      .status-group .pill-chip:nth-child(n+4) {
-        display: none;
+      .speed-unit-label {
+        font-size: 0.62rem;
+      }
+      .speed-source-tag {
+        font-size: 0.52rem;
+        padding: 1px 4px;
+      }
+      .speed-subtext {
+        font-size: 0.56rem;
+        margin-top: 3px;
+      }
+      .corridor-distance {
+        font-size: 1.35rem;
+      }
+      .corridor-label {
+        font-size: 0.60rem;
+      }
+      .corridor-sub-row {
+        font-size: 0.58rem;
+        margin-top: 2px;
+      }
+      .metric-row {
+        font-size: 0.62rem;
       }
     }
   </style>
@@ -667,20 +758,19 @@
 
   <!-- Mandatory User Gesture & Safety Notice Splash -->
   <div id="splash-overlay">
-    <div class="splash-brand">DATUM ATELIER</div>
-    <div class="splash-tagline">
-      Quiet, deterministic automotive intelligence.<br>
-      Zero cloud latency. Zero video retention. Absolute clarity.
-    </div>
+    <div class="splash-content">
+      <div class="splash-eyebrow">AUTOMOTIVE SAFETY INTELLIGENCE</div>
+      <div class="splash-brand">DATUM ATELIER</div>
+      <div class="splash-tagline">
+        Deterministic Optical Vision & Kinematic Sanctuary.<br>
+        100% Offline • Ephemeral Pipeline • Zero Video Stored.
+      </div>
 
-    <div class="splash-spec-pills">
-      <div class="spec-pill">Zero Video Retention</div>
-      <div class="spec-pill">160×120 Ephemeral Stream</div>
-      <div class="spec-pill">60 Hz IMU Attitude Fusion</div>
-      <div class="spec-pill">GNSS Ground Truth</div>
+      <button id="btn-main-start" class="btn-engage" onclick="window.__launchAdas(event)" ontouchend="window.__launchAdas(event)">
+        <span class="engage-led"></span>
+        <span>INITIALIZE HUD</span>
+      </button>
     </div>
-
-    <button id="btn-main-start" class="btn-engage" onclick="window.__launchAdas(event)" ontouchend="window.__launchAdas(event)">INITIALIZE ATELIER HUD</button>
   </div>
 
   <!-- Primary Automotive HUD Viewport -->
@@ -708,7 +798,7 @@
       <div class="controls-group">
         <button id="btn-mirror-toggle" class="cockpit-toggle" title="Windshield Projection Mode">
           <span class="toggle-icon">⛶</span>
-          <span class="toggle-text">HUD MIRROR</span>
+          <span class="toggle-text">MIRROR</span>
           <span class="toggle-led" id="led-mirror"></span>
         </button>
         <button id="btn-mute-toggle" class="cockpit-toggle active" title="Audio Klaxon Warning">

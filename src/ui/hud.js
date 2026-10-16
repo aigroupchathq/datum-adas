@@ -61,8 +61,19 @@ export function initHud() {
   requestAnimationFrame(renderLoop);
 }
 
+let lastRenderTime = performance.now();
+let roadTravelOffsetM = 0;
+
 function renderLoop() {
   if (!isRunning) return;
+
+  const now = performance.now();
+  const dt = Math.min(0.1, (now - lastRenderTime) / 1000);
+  lastRenderTime = now;
+
+  // Advance highway dashed stripes with vehicle speed (speedMps)
+  const speedMps = telemetryState.speedMps || ((telemetryState.speedMph || 0) * 0.44704);
+  roadTravelOffsetM = (roadTravelOffsetM + speedMps * dt) % 12.0;
 
   renderState();
   renderRoadOptics();
@@ -266,6 +277,7 @@ function renderRoadOptics() {
   const scaleX = w / 160;
   const horizonPx = telemetryState.horizonY * scaleY;
   const F_Y = 115 * scaleY;
+  const F_X = 115 * scaleX;
   const H_CAM = telemetryState.cameraHeightM;
 
   // -------------------------------------------------------------
@@ -289,76 +301,133 @@ function renderRoadOptics() {
   arCtx.restore();
 
   // -------------------------------------------------------------
-  // 2. Physical Vehicle Road Tracking Lines (The Road Lines Static Marks)
-  // Projects 1.85m vehicle tracking corridor on the road surface
+  // 2. Highway Dashed Lane Stripes & Static Distance Marks
+  // Standard highway geometry: 3.6m lane width (-1.8m left, +1.8m right)
+  // Dashes: 3m paint, 9m gap (12m cycle) with 3D perspective trapezoids
   // -------------------------------------------------------------
-  const leftBottomX = w * 0.18;
-  const rightBottomX = w * 0.82;
-  const leftHorizonX = w * 0.46;
-  const rightHorizonX = w * 0.54;
-
   arCtx.save();
-  let corridorColor = 'rgba(255, 255, 255, 0.16)';
-  let tickColor = 'rgba(255, 255, 255, 0.32)';
-  let corridorWidth = 1.2;
 
-  if (telemetryState.alertLevel === 'DANGER_COLLISION') {
-    corridorColor = 'rgba(255, 59, 48, 0.8)';
-    tickColor = 'rgba(255, 59, 48, 0.9)';
-    corridorWidth = 2.2;
-    arCtx.shadowColor = 'rgba(255, 59, 48, 0.4)';
-    arCtx.shadowBlur = 8;
-  } else if (telemetryState.alertLevel === 'CAUTION') {
-    corridorColor = 'rgba(245, 166, 35, 0.5)';
-    tickColor = 'rgba(245, 166, 35, 0.7)';
-    corridorWidth = 1.6;
+  const laneLeftM = -1.8;
+  const laneRightM = +1.8;
+  const carLeftM = -0.925; // 1.85m car track
+  const carRightM = +0.925;
+  const stripeWidthM = 0.15; // 15cm highway stripe width
+
+  let isDanger = telemetryState.alertLevel === 'DANGER_COLLISION';
+  let isCaution = telemetryState.alertLevel === 'CAUTION';
+
+  // A. Inner Vehicle Wheel-Track Trajectory (1.85m track width)
+  arCtx.strokeStyle = isDanger ? 'rgba(255, 59, 48, 0.35)' : 'rgba(255, 255, 255, 0.08)';
+  arCtx.lineWidth = 1.0;
+  arCtx.beginPath();
+  const trackNearY = h;
+  const trackNearZ = Math.max(2.5, (H_CAM * F_Y) / Math.max(1, (trackNearY - horizonPx)));
+  const trackFarZ = 55.0; // 55m ahead
+  const trackFarY = horizonPx + (H_CAM * F_Y) / trackFarZ;
+
+  const xNearL = (w / 2) + (carLeftM * F_X) / trackNearZ;
+  const xFarL = (w / 2) + (carLeftM * F_X) / trackFarZ;
+  const xNearR = (w / 2) + (carRightM * F_X) / trackNearZ;
+  const xFarR = (w / 2) + (carRightM * F_X) / trackFarZ;
+
+  arCtx.moveTo(xFarL, trackFarY);
+  arCtx.lineTo(xNearL, trackNearY);
+  arCtx.moveTo(xFarR, trackFarY);
+  arCtx.lineTo(xNearR, trackNearY);
+  arCtx.stroke();
+
+  // B. Highway Dashed Lane Stripes (Left & Right boundaries)
+  // Rendered as authentic 3D perspective trapezoid dashes on the asphalt
+  const dashLengthM = 3.0; // 3 meters paint
+  const cycleM = 12.0;     // 12 meters repeat cycle
+  const maxZ = 75.0;
+  const minZ = 3.2;
+
+  for (let zBase = -cycleM; zBase < maxZ; zBase += cycleM) {
+    const z1 = zBase + roadTravelOffsetM;
+    const z2 = z1 + dashLengthM;
+
+    if (z2 <= minZ || z1 >= maxZ) continue;
+
+    const clampedZ1 = Math.max(minZ, z1);
+    const clampedZ2 = Math.min(maxZ, z2);
+    if (clampedZ2 <= clampedZ1) continue;
+
+    const y1 = horizonPx + (H_CAM * F_Y) / clampedZ1;
+    const y2 = horizonPx + (H_CAM * F_Y) / clampedZ2;
+
+    if (y1 <= horizonPx || y2 <= horizonPx) continue;
+
+    const wStripe1 = Math.max(1.0, (stripeWidthM * F_X) / clampedZ1);
+    const wStripe2 = Math.max(0.6, (stripeWidthM * F_X) / clampedZ2);
+
+    const fade = Math.max(0.12, Math.min(1.0, 1.0 - (clampedZ1 / maxZ)));
+
+    // Left Lane Dash (X = laneLeftM)
+    const xL1 = (w / 2) + (laneLeftM * F_X) / clampedZ1;
+    const xL2 = (w / 2) + (laneLeftM * F_X) / clampedZ2;
+
+    arCtx.fillStyle = isDanger
+      ? `rgba(255, 59, 48, ${0.85 * fade})`
+      : (isCaution ? `rgba(245, 166, 35, ${0.75 * fade})` : `rgba(255, 255, 255, ${0.50 * fade})`);
+
+    arCtx.beginPath();
+    arCtx.moveTo(xL1 - wStripe1 / 2, y1);
+    arCtx.lineTo(xL1 + wStripe1 / 2, y1);
+    arCtx.lineTo(xL2 + wStripe2 / 2, y2);
+    arCtx.lineTo(xL2 - wStripe2 / 2, y2);
+    arCtx.closePath();
+    arCtx.fill();
+
+    // Right Lane Dash (X = laneRightM)
+    const xR1 = (w / 2) + (laneRightM * F_X) / clampedZ1;
+    const xR2 = (w / 2) + (laneRightM * F_X) / clampedZ2;
+
+    arCtx.beginPath();
+    arCtx.moveTo(xR1 - wStripe1 / 2, y1);
+    arCtx.lineTo(xR1 + wStripe1 / 2, y1);
+    arCtx.lineTo(xR2 + wStripe2 / 2, y2);
+    arCtx.lineTo(xR2 - wStripe2 / 2, y2);
+    arCtx.closePath();
+    arCtx.fill();
   }
 
-  // Left & Right Road Wheel-Track Guidelines
-  arCtx.strokeStyle = corridorColor;
-  arCtx.lineWidth = corridorWidth;
-  arCtx.beginPath();
-  arCtx.moveTo(leftHorizonX, horizonPx);
-  arCtx.lineTo(leftBottomX, h);
-  arCtx.moveTo(rightHorizonX, horizonPx);
-  arCtx.lineTo(rightBottomX, h);
-  arCtx.stroke();
-  arCtx.shadowBlur = 0;
+  // C. Static Road Distance Marks (15m, 30m, 50m)
+  // Calibrated transverse highway gates anchored onto the asphalt
+  const staticGates = [15, 30, 50];
+  arCtx.font = '600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
 
-  // Center Dashed Path Guidance Line
-  arCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-  arCtx.setLineDash([6, 14]);
-  arCtx.beginPath();
-  arCtx.moveTo(w * 0.5, horizonPx);
-  arCtx.lineTo(w * 0.5, h);
-  arCtx.stroke();
-  arCtx.setLineDash([]);
+  staticGates.forEach(distM => {
+    const yPx = horizonPx + (H_CAM * F_Y) / distM;
+    if (yPx > horizonPx + 8 && yPx < h - 12) {
+      const xLeft = (w / 2) + (laneLeftM * F_X) / distM;
+      const xRight = (w / 2) + (laneRightM * F_X) / distM;
 
-  // Static Transverse Road Depth Marks (15m, 30m, 50m)
-  const depthTicks = [15, 30, 50];
-  arCtx.font = '500 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  arCtx.fillStyle = tickColor;
+      const isTargetBreached = telemetryState.targetDistanceM <= distM;
+      const gateColor = isTargetBreached && isDanger
+        ? 'rgba(255, 59, 48, 0.95)'
+        : (isTargetBreached && isCaution ? 'rgba(245, 166, 35, 0.85)' : 'rgba(255, 255, 255, 0.32)');
 
-  depthTicks.forEach(dist => {
-    const yPx = horizonPx + (H_CAM * F_Y) / dist;
-    if (yPx > horizonPx + 10 && yPx < h - 15) {
-      const norm = (yPx - horizonPx) / (h - horizonPx);
-      const curLeft = leftHorizonX + (leftBottomX - leftHorizonX) * norm;
-      const curRight = rightHorizonX + (rightBottomX - rightHorizonX) * norm;
-
-      // Inward depth ticks
-      const tickLen = 10;
-      arCtx.strokeStyle = tickColor;
-      arCtx.lineWidth = 1;
+      // Transverse calibration bar across the highway lane
+      arCtx.strokeStyle = gateColor;
+      arCtx.lineWidth = isTargetBreached ? 1.6 : 0.8;
       arCtx.beginPath();
-      arCtx.moveTo(curLeft, yPx);
-      arCtx.lineTo(curLeft + tickLen, yPx);
-      arCtx.moveTo(curRight, yPx);
-      arCtx.lineTo(curRight - tickLen, yPx);
+      arCtx.moveTo(xLeft, yPx);
+      arCtx.lineTo(xRight, yPx);
       arCtx.stroke();
 
-      // Transverse distance indicator beside left rail
-      arCtx.fillText(`${dist}m`, Math.max(8, curLeft - 26), yPx + 3);
+      // Inward depth tick notches
+      const tickH = Math.max(3, 140 / distM);
+      arCtx.beginPath();
+      arCtx.moveTo(xLeft, yPx - tickH);
+      arCtx.lineTo(xLeft, yPx + tickH);
+      arCtx.moveTo(xRight, yPx - tickH);
+      arCtx.lineTo(xRight, yPx + tickH);
+      arCtx.stroke();
+
+      // Ground pavement distance numeral anchored at left gate edge
+      arCtx.fillStyle = gateColor;
+      arCtx.fillText(`${distM}m`, Math.max(10, xLeft - 30), yPx + 4);
     }
   });
 
