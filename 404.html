@@ -6,6 +6,82 @@
   <meta name="theme-color" content="#000000">
   <title>Datum ADAS HUD</title>
   <link rel="manifest" href="./manifest.json">
+  <script>
+    // Force purge stale Service Worker caches from mobile device
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        for (var i = 0; i < regs.length; i++) {
+          regs[i].unregister();
+        }
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then(function(keys) {
+        for (var j = 0; j < keys.length; j++) {
+          caches.delete(keys[j]);
+        }
+      });
+    }
+
+    // Direct synchronous user activation launcher
+    window.__launchAdas = function(e) {
+      if (e) {
+        if (e.preventDefault) e.preventDefault();
+        if (e.stopPropagation) e.stopPropagation();
+      }
+      var splash = document.getElementById('splash-overlay');
+      if (splash) {
+        splash.style.display = 'none';
+        splash.classList.add('hidden');
+      }
+
+      var video = document.getElementById('live-camera-video');
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        var constraints = {
+          video: { facingMode: { ideal: 'environment' } },
+          audio: false
+        };
+        navigator.mediaDevices.getUserMedia(constraints)
+          .then(function(stream) {
+            if (video) {
+              video.srcObject = stream;
+              video.play().catch(function() {});
+            }
+            var camTag = document.getElementById('hud-camera-status');
+            if (camTag) {
+              camTag.textContent = '📷 CAM: LIVE';
+              camTag.className = 'status-tag tag-gps';
+            }
+          })
+          .catch(function(err) {
+            console.warn('Fallback constraint triggered:', err);
+            navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+              .then(function(stream) {
+                if (video) {
+                  video.srcObject = stream;
+                  video.play().catch(function() {});
+                }
+                var camTag = document.getElementById('hud-camera-status');
+                if (camTag) {
+                  camTag.textContent = '📷 CAM: LIVE';
+                  camTag.className = 'status-tag tag-gps';
+                }
+              })
+              .catch(function(e2) {
+                var camTag = document.getElementById('hud-camera-status');
+                if (camTag) {
+                  camTag.textContent = '📷 CAM: BLOCKED';
+                  camTag.className = 'status-tag tag-warn';
+                }
+              });
+          });
+      }
+
+      if (window.__adasBootstrap) {
+        window.__adasBootstrap();
+      }
+    };
+  </script>
   <style>
     :root {
       --bg: #000000;
@@ -28,6 +104,14 @@
       user-select: none;
       -webkit-user-select: none;
       touch-action: manipulation;
+    }
+
+    button, a, input, select, .btn-launch, .hud-btn {
+      -webkit-user-select: auto !important;
+      user-select: auto !important;
+      cursor: pointer !important;
+      pointer-events: auto !important;
+      touch-action: manipulation !important;
     }
 
     body, html {
@@ -502,7 +586,7 @@
       <div class="badge-item">📴 100% Offline PWA</div>
     </div>
 
-    <button id="btn-main-start" class="btn-launch">ACTIVATE ADAS & CAM</button>
+    <button id="btn-main-start" class="btn-launch" onclick="window.__launchAdas(event)" ontouchend="window.__launchAdas(event)">ACTIVATE ADAS & CAM</button>
   </div>
 
   <!-- Primary Automotive HUD Viewport -->

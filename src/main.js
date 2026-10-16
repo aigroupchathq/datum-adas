@@ -47,6 +47,9 @@ function bootstrap() {
     initGps();
   };
 
+  // Expose for inline HTML activation
+  window.__adasBootstrap = handleLaunch;
+
   if (startBtn) {
     startBtn.addEventListener('click', handleLaunch);
     startBtn.addEventListener('touchend', handleLaunch);
