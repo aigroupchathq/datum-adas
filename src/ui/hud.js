@@ -393,9 +393,9 @@ function renderRoadOptics() {
   }
 
   // C. Static Road Distance Marks (15m, 30m, 50m)
-  // Calibrated transverse highway gates anchored onto the asphalt
+  // Calibrated transverse highway gates anchored onto the asphalt with Apple Spatial Glass Pills
   const staticGates = [15, 30, 50];
-  arCtx.font = '600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  arCtx.font = '600 10.5px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
 
   staticGates.forEach(distM => {
     const yPx = horizonPx + (H_CAM * F_Y) / distM;
@@ -405,19 +405,19 @@ function renderRoadOptics() {
 
       const isTargetBreached = telemetryState.targetDistanceM <= distM;
       const gateColor = isTargetBreached && isDanger
-        ? 'rgba(255, 59, 48, 0.95)'
-        : (isTargetBreached && isCaution ? 'rgba(245, 166, 35, 0.85)' : 'rgba(255, 255, 255, 0.32)');
+        ? '#ff453a'
+        : (isTargetBreached && isCaution ? '#ff9f0a' : 'rgba(255, 255, 255, 0.35)');
 
       // Transverse calibration bar across the highway lane
       arCtx.strokeStyle = gateColor;
-      arCtx.lineWidth = isTargetBreached ? 1.6 : 0.8;
+      arCtx.lineWidth = isTargetBreached ? 1.5 : 0.75;
       arCtx.beginPath();
       arCtx.moveTo(xLeft, yPx);
       arCtx.lineTo(xRight, yPx);
       arCtx.stroke();
 
       // Inward depth tick notches
-      const tickH = Math.max(3, 140 / distM);
+      const tickH = Math.max(3, 130 / distM);
       arCtx.beginPath();
       arCtx.moveTo(xLeft, yPx - tickH);
       arCtx.lineTo(xLeft, yPx + tickH);
@@ -425,9 +425,32 @@ function renderRoadOptics() {
       arCtx.lineTo(xRight, yPx + tickH);
       arCtx.stroke();
 
-      // Ground pavement distance numeral anchored at left gate edge
-      arCtx.fillStyle = gateColor;
-      arCtx.fillText(`${distM}m`, Math.max(10, xLeft - 30), yPx + 4);
+      // Apple Spatial Glass Distance Pill (Anchored at left gate edge)
+      const pillLabel = `${distM}m`;
+      const textW = arCtx.measureText(pillLabel).width;
+      const pillW = textW + 12;
+      const pillH = 17;
+      const pillX = Math.max(8, xLeft - pillW - 6);
+      const pillY = yPx - (pillH / 2);
+
+      arCtx.save();
+      arCtx.fillStyle = 'rgba(16, 18, 26, 0.82)';
+      arCtx.strokeStyle = gateColor;
+      arCtx.lineWidth = 0.5;
+      arCtx.beginPath();
+      if (arCtx.roundRect) {
+        arCtx.roundRect(pillX, pillY, pillW, pillH, 8);
+      } else {
+        arCtx.rect(pillX, pillY, pillW, pillH);
+      }
+      arCtx.fill();
+      arCtx.stroke();
+
+      arCtx.fillStyle = isTargetBreached ? gateColor : '#ffffff';
+      arCtx.textAlign = 'center';
+      arCtx.textBaseline = 'middle';
+      arCtx.fillText(pillLabel, pillX + (pillW / 2), pillY + (pillH / 2));
+      arCtx.restore();
     }
   });
 
@@ -509,12 +532,34 @@ function renderRoadOptics() {
     arCtx.moveTo(bx + bw - corner, by + bh); arCtx.lineTo(bx + bw, by + bh); arCtx.lineTo(bx + bw, by + bh - corner);
     arCtx.stroke();
 
-    // Clean, discreet distance badge with physical uncertainty bound
+    // Apple Spatial Floating Glass Target Pill
     const errText = telemetryState.opticalUncertaintyM > 0.4 ? ` ±${telemetryState.opticalUncertaintyM}m` : '';
     const badgeText = `${telemetryState.targetDistanceM}m${errText}`;
-    arCtx.font = '500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    arCtx.font = '600 11px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
+    const textW = arCtx.measureText(badgeText).width;
+    const badgeW = textW + 14;
+    const badgeH = 19;
+    const badgeX = bx + (bw / 2) - (badgeW / 2);
+    const badgeY = Math.max(12, by - badgeH - 6);
+
+    arCtx.save();
+    arCtx.fillStyle = 'rgba(16, 18, 26, 0.85)';
+    arCtx.strokeStyle = strokeColor;
+    arCtx.lineWidth = 0.5;
+    arCtx.beginPath();
+    if (arCtx.roundRect) {
+      arCtx.roundRect(badgeX, badgeY, badgeW, badgeH, 9);
+    } else {
+      arCtx.rect(badgeX, badgeY, badgeW, badgeH);
+    }
+    arCtx.fill();
+    arCtx.stroke();
+
     arCtx.fillStyle = strokeColor;
-    arCtx.fillText(badgeText, bx + (bw / 2) - (arCtx.measureText(badgeText).width / 2), Math.max(16, by - 6));
+    arCtx.textAlign = 'center';
+    arCtx.textBaseline = 'middle';
+    arCtx.fillText(badgeText, badgeX + (badgeW / 2), badgeY + (badgeH / 2));
+    arCtx.restore();
 
     arCtx.restore();
   }
