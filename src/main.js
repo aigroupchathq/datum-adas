@@ -5,6 +5,7 @@
 
 import { initCamera } from './sensors/camera.js';
 import { initGps } from './sensors/gps.js';
+import { initImu } from './sensors/imu.js';
 import { requestWakeLock } from './sensors/wakeLock.js';
 import { initAudio } from './ui/audioAlerts.js';
 import { initHud } from './ui/hud.js';
@@ -45,6 +46,9 @@ function bootstrap() {
 
     // 3. Initialize GPS (offline satellite GNSS)
     initGps();
+
+    // 4. Initialize 60 Hz IMU Gyro Attitude Stabilization
+    initImu();
   };
 
   // Expose for inline HTML activation
