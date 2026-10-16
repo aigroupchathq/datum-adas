@@ -200,6 +200,6 @@ export function initSimControls() {
 
   function updateSimButtonState(btn) {
     btn.classList.toggle('active', telemetryState.isSimMode);
-    btn.textContent = telemetryState.isSimMode ? '🎮 Sim Mode: ON' : '🎮 Sim Mode: OFF';
+    btn.textContent = telemetryState.isSimMode ? 'SIMULATION: ON' : 'SIMULATION: OFF';
   }
 }
