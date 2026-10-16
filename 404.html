@@ -765,19 +765,24 @@
     .ind-green { background: var(--accent-safe); box-shadow: 0 0 6px var(--accent-safe); }
 
     /* Splash Screen (Neat Black Minimal Automotive Theme) */
+    /* Splash Screen (Neat Black Minimal Automotive Theme - Full Screen Viewport) */
     #splash-overlay {
       position: fixed;
       inset: 0;
-      background: radial-gradient(circle at 50% 38%, #0e1017 0%, #040508 65%, #000000 100%);
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh;
+      background: radial-gradient(circle at 50% 32%, #111522 0%, #06070c 55%, #000000 100%);
       display: flex;
-      justify-content: center;
+      flex-direction: column;
+      justify-content: space-between;
       align-items: center;
       z-index: 9999;
-      padding: 24px;
+      padding: max(32px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+      box-sizing: border-box;
+      overflow-y: auto;
       text-align: center;
-      backdrop-filter: blur(40px);
-      -webkit-backdrop-filter: blur(40px);
-      transition: opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.35s ease;
+      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.4s ease;
     }
 
     #splash-overlay.hidden {
@@ -788,74 +793,100 @@
     }
 
     .splash-card {
-      background: rgba(10, 11, 15, 0.94);
-      backdrop-filter: blur(50px) saturate(200%);
-      -webkit-backdrop-filter: blur(50px) saturate(200%);
-      border: 0.5px solid rgba(255, 255, 255, 0.12);
-      box-shadow: 0 32px 84px -16px rgba(0, 0, 0, 0.95), inset 0 0.5px 0.5px 0 rgba(255, 255, 255, 0.20);
-      border-radius: 32px;
-      padding: 40px 32px 34px 32px;
-      max-width: 390px;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      border-radius: 0;
+      padding: 0;
+      max-width: 680px;
       width: 100%;
+      height: 100%;
+      min-height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      text-align: center;
+      box-sizing: border-box;
+    }
+
+    .splash-header-group {
       display: flex;
       flex-direction: column;
       align-items: center;
-      text-align: center;
+      padding-top: 8px;
     }
 
     .splash-eyebrow {
-      font-size: 0.65rem;
+      font-size: 0.72rem;
       font-weight: 600;
-      letter-spacing: 4px;
-      color: rgba(255, 255, 255, 0.48);
+      letter-spacing: 5px;
+      color: rgba(255, 255, 255, 0.46);
       text-transform: uppercase;
-      margin-bottom: 8px;
+      margin-bottom: 12px;
     }
 
     .splash-brand {
-      font-size: 1.95rem;
+      font-size: 2.35rem;
       font-weight: 350;
-      letter-spacing: 5px;
+      letter-spacing: 6px;
       color: #ffffff;
       margin-bottom: 0px;
       text-align: center;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 10px;
     }
 
     .brand-bold {
-      font-weight: 700;
+      font-weight: 750;
       color: #ffffff;
     }
 
     .brand-light {
-      font-weight: 300;
+      font-weight: 250;
       color: rgba(255, 255, 255, 0.70);
     }
 
     .splash-road-art {
-      margin: 20px 0 24px 0;
+      margin: auto 0;
       display: flex;
       justify-content: center;
       align-items: center;
       width: 100%;
-      filter: drop-shadow(0 6px 20px rgba(255, 209, 89, 0.18));
+      max-width: 520px;
+      filter: drop-shadow(0 10px 32px rgba(255, 209, 89, 0.22));
+    }
+
+    .splash-road-art svg {
+      width: 100%;
+      height: auto;
+      max-height: 220px;
+      display: block;
+    }
+
+    .splash-bottom-group {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+      padding-bottom: 4px;
     }
 
     .splash-guarantee {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
+      gap: 8px;
       background: rgba(255, 255, 255, 0.05);
-      border: 0.5px solid rgba(255, 255, 255, 0.1);
-      padding: 6px 14px;
+      border: 0.5px solid rgba(255, 255, 255, 0.12);
+      padding: 7px 18px;
       border-radius: 999px;
-      font-size: 0.64rem;
-      letter-spacing: 0.6px;
-      color: rgba(255, 255, 255, 0.6);
-      margin-bottom: 30px;
+      font-size: 0.68rem;
+      letter-spacing: 0.7px;
+      color: rgba(255, 255, 255, 0.65);
+      margin-bottom: 0px;
     }
 
     .guarantee-dot {
@@ -864,32 +895,34 @@
     }
 
     .splash-disclaimer {
-      font-size: 0.52rem;
-      letter-spacing: 1.2px;
-      color: rgba(255, 255, 255, 0.32);
-      margin-top: 14px;
+      font-size: 0.54rem;
+      letter-spacing: 1.4px;
+      color: rgba(255, 255, 255, 0.30);
       text-transform: uppercase;
       font-weight: 500;
       line-height: 1.4;
       text-align: center;
+      max-width: 440px;
     }
 
     .btn-engage {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 12px;
       background: #ffffff;
       border: none;
       color: #000000;
-      font-size: 0.80rem;
-      font-weight: 600;
-      letter-spacing: 1.6px;
+      font-size: 0.82rem;
+      font-weight: 650;
+      letter-spacing: 2px;
       text-transform: uppercase;
-      padding: 14px 34px;
+      padding: 16px 36px;
       border-radius: 999px;
       cursor: pointer;
-      box-shadow: 0 4px 24px rgba(255, 255, 255, 0.25);
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 4px 28px rgba(255, 255, 255, 0.28);
       transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       -webkit-tap-highlight-color: transparent;
     }
@@ -1028,75 +1061,79 @@
 </head>
 <body>
 
-  <!-- Mandatory User Gesture & Safety Notice Splash (Apple VisionOS / iOS Design) -->
+  <!-- Mandatory User Gesture & Safety Notice Splash (Full-Screen Viewport) -->
   <div id="splash-overlay">
     <div class="splash-card">
-      <div class="splash-eyebrow">AUTOMOTIVE INTELLIGENCE</div>
-      
-      <h1 class="splash-brand">
-        <span class="brand-bold">DATUM</span>
-        <span class="brand-light">ATELIER</span>
-      </h1>
+      <div class="splash-header-group">
+        <div class="splash-eyebrow">AUTOMOTIVE INTELLIGENCE</div>
+        
+        <h1 class="splash-brand">
+          <span class="brand-bold">DATUM</span>
+          <span class="brand-light">ATELIER</span>
+        </h1>
+      </div>
 
-      <!-- Perspective Lane Lines Illustration -->
+      <!-- Perspective Lane Lines Illustration (Scalable Viewport Art) -->
       <div class="splash-road-art">
-        <svg width="260" height="96" viewBox="0 0 260 96" fill="none">
+        <svg width="340" height="120" viewBox="0 0 340 120" fill="none">
           <defs>
-            <linearGradient id="corridorGlow" x1="130" y1="16" x2="130" y2="96" gradientUnits="userSpaceOnUse">
+            <linearGradient id="corridorGlow" x1="170" y1="20" x2="170" y2="120" gradientUnits="userSpaceOnUse">
               <stop offset="0%" stop-color="#ffd159" stop-opacity="0"/>
-              <stop offset="100%" stop-color="#ffd159" stop-opacity="0.08"/>
+              <stop offset="100%" stop-color="#ffd159" stop-opacity="0.10"/>
             </linearGradient>
           </defs>
 
           <!-- Perspective Road Corridor Floor -->
-          <polygon points="130,16 34,96 226,96" fill="url(#corridorGlow)"/>
+          <polygon points="170,20 36,120 304,120" fill="url(#corridorGlow)"/>
 
           <!-- Stabilized Horizon Reference Hairline -->
-          <line x1="45" y1="16" x2="110" y2="16" stroke="rgba(255,255,255,0.18)" stroke-width="0.75"/>
-          <line x1="150" y1="16" x2="215" y2="16" stroke="rgba(255,255,255,0.18)" stroke-width="0.75"/>
-          <circle cx="130" cy="16" r="2.5" fill="#30d158"/>
-          <circle cx="130" cy="16" r="6" stroke="#30d158" stroke-width="0.5" stroke-opacity="0.4"/>
+          <line x1="50" y1="20" x2="144" y2="20" stroke="rgba(255,255,255,0.20)" stroke-width="0.75"/>
+          <line x1="196" y1="20" x2="290" y2="20" stroke="rgba(255,255,255,0.20)" stroke-width="0.75"/>
+          <circle cx="170" cy="20" r="3" fill="#30d158"/>
+          <circle cx="170" cy="20" r="7.5" stroke="#30d158" stroke-width="0.6" stroke-opacity="0.45"/>
 
           <!-- Inner 1.85m Vehicle Wheel Tracks -->
-          <line x1="130" y1="16" x2="84" y2="96" stroke="rgba(255, 209, 89, 0.22)" stroke-width="0.8" stroke-dasharray="3 3"/>
-          <line x1="130" y1="16" x2="176" y2="96" stroke="rgba(255, 209, 89, 0.22)" stroke-width="0.8" stroke-dasharray="3 3"/>
+          <line x1="170" y1="20" x2="105" y2="120" stroke="rgba(255, 209, 89, 0.22)" stroke-width="0.8" stroke-dasharray="3 3"/>
+          <line x1="170" y1="20" x2="235" y2="120" stroke="rgba(255, 209, 89, 0.22)" stroke-width="0.8" stroke-dasharray="3 3"/>
 
           <!-- Transverse Calibration Distance Gates (50m, 30m, 15m) -->
-          <line x1="112" y1="32" x2="148" y2="32" stroke="rgba(255, 209, 89, 0.35)" stroke-width="0.75"/>
-          <line x1="96" y1="48" x2="164" y2="48" stroke="rgba(255, 209, 89, 0.50)" stroke-width="0.85"/>
-          <line x1="72" y1="72" x2="188" y2="72" stroke="rgba(255, 209, 89, 0.75)" stroke-width="1.0"/>
-          <line x1="72" y1="68" x2="72" y2="76" stroke="rgba(255, 209, 89, 0.75)" stroke-width="1.0"/>
-          <line x1="188" y1="68" x2="188" y2="76" stroke="rgba(255, 209, 89, 0.75)" stroke-width="1.0"/>
+          <line x1="146" y1="38" x2="194" y2="38" stroke="rgba(255, 209, 89, 0.35)" stroke-width="0.75"/>
+          <line x1="126" y1="58" x2="214" y2="58" stroke="rgba(255, 209, 89, 0.50)" stroke-width="0.85"/>
+          <line x1="94" y1="88" x2="246" y2="88" stroke="rgba(255, 209, 89, 0.75)" stroke-width="1.0"/>
+          <line x1="94" y1="84" x2="94" y2="92" stroke="rgba(255, 209, 89, 0.75)" stroke-width="1.0"/>
+          <line x1="246" y1="84" x2="246" y2="92" stroke="rgba(255, 209, 89, 0.75)" stroke-width="1.0"/>
 
           <!-- Golden Highway Dashed Stripes (Left Lane) -->
-          <polygon points="121,24 123,24 116,33 114,33" fill="#ffd159" fill-opacity="0.45"/>
-          <polygon points="107,43 110,43 97,58 93,58" fill="#ffd159" fill-opacity="0.75"/>
-          <polygon points="85,69 89,69 66,96 61,96" fill="#ffd159" fill-opacity="0.95"/>
+          <polygon points="158,30 160.5,30 152,40 149.5,40" fill="#ffd159" fill-opacity="0.45"/>
+          <polygon points="140,52 143.5,52 127,70 122.5,70" fill="#ffd159" fill-opacity="0.75"/>
+          <polygon points="112,84 117,84 86,120 80,120" fill="#ffd159" fill-opacity="0.95"/>
 
           <!-- Golden Highway Dashed Stripes (Right Lane) -->
-          <polygon points="137,24 139,24 146,33 144,33" fill="#ffd159" fill-opacity="0.45"/>
-          <polygon points="150,43 153,43 167,58 163,58" fill="#ffd159" fill-opacity="0.75"/>
-          <polygon points="171,69 175,69 199,96 194,96" fill="#ffd159" fill-opacity="0.95"/>
+          <polygon points="179.5,30 182,30 190.5,40 188,40" fill="#ffd159" fill-opacity="0.45"/>
+          <polygon points="196.5,52 200,52 217.5,70 213,70" fill="#ffd159" fill-opacity="0.75"/>
+          <polygon points="223,84 228,84 260,120 254,120" fill="#ffd159" fill-opacity="0.95"/>
 
           <!-- Lead Target Tracking Reticle at 35m -->
-          <path d="M 119 44 L 115 44 L 115 48 M 141 44 L 145 44 L 145 48 M 115 54 L 115 58 L 119 58 M 145 54 L 145 58 L 141 58" stroke="#ffd159" stroke-width="1.0"/>
-          <rect x="119" y="38" width="22" height="6.5" rx="3" fill="#14120c" stroke="#ffd159" stroke-width="0.5"/>
-          <text x="130" y="43" fill="#ffd159" font-size="5" font-weight="600" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif">35m</text>
+          <path d="M 156 54 L 151 54 L 151 59 M 184 54 L 189 54 L 189 59 M 151 66 L 151 71 L 156 71 M 189 66 L 189 71 L 184 71" stroke="#ffd159" stroke-width="1.0"/>
+          <rect x="157" y="47" width="26" height="7.5" rx="3.5" fill="#14120c" stroke="#ffd159" stroke-width="0.5"/>
+          <text x="170" y="52.8" fill="#ffd159" font-size="5.5" font-weight="600" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif">35m</text>
         </svg>
       </div>
 
-      <div class="splash-guarantee">
-        <span class="guarantee-dot">●</span>
-        <span>100% On-Device • Ephemeral Stream • Zero Video Stored</span>
-      </div>
+      <div class="splash-bottom-group">
+        <div class="splash-guarantee">
+          <span class="guarantee-dot">●</span>
+          <span>100% On-Device • Ephemeral Stream • Zero Video Stored</span>
+        </div>
 
-      <button id="btn-main-start" class="btn-engage" onclick="window.__launchAdas(event)" ontouchend="window.__launchAdas(event)">
-        <span class="engage-led"></span>
-        <span class="engage-label">INITIALIZE HUD</span>
-      </button>
+        <button id="btn-main-start" class="btn-engage" onclick="window.__launchAdas(event)" ontouchend="window.__launchAdas(event)">
+          <span class="engage-led"></span>
+          <span class="engage-label">INITIALIZE HUD</span>
+        </button>
 
-      <div class="splash-disclaimer">
-        SAE J3016 LEVEL 0 ADVISORY SYSTEM • DRIVER RETAINS 100% CONTROL
+        <div class="splash-disclaimer">
+          SAE J3016 LEVEL 0 ADVISORY SYSTEM • DRIVER RETAINS 100% CONTROL
+        </div>
       </div>
     </div>
   </div>
