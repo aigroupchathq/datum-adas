@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#000000">
-  <title>DATUM AVIONICS ADAS HUD</title>
+  <title>DATUM • Sanctuary ADAS</title>
   <link rel="manifest" href="./manifest.json">
   <script>
-    // Purge any stale service worker caches on mobile
+    // Purge any stale service worker caches on mobile load
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(function(regs) {
         for (var i = 0; i < regs.length; i++) regs[i].unregister();
@@ -19,7 +19,7 @@
       });
     }
 
-    // Direct synchronous user activation launcher
+    // Direct synchronous user gesture activation launcher (iOS / WebKit hardened)
     window.__launchAdas = function(e) {
       if (e) {
         if (e.preventDefault) e.preventDefault();
@@ -59,17 +59,17 @@
   </script>
   <style>
     :root {
-      --bg: #030305;
-      --card-bg: rgba(6, 8, 12, 0.72);
-      --border: rgba(0, 240, 255, 0.18);
-      --text: #ffffff;
-      --text-muted: #7c8894;
-      --safe: #00ff88;
-      --caution: #ffaa00;
-      --danger: #ff2244;
-      --accent: #00f0ff;
-      --font-mono: "SF Mono", Monaco, Consolas, "Liberation Mono", Courier, monospace;
-      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --bg: #000000;
+      --surface: rgba(18, 18, 22, 0.65);
+      --surface-border: rgba(255, 255, 255, 0.1);
+      --surface-solid: #111215;
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.48);
+      --text-tertiary: rgba(255, 255, 255, 0.28);
+      --accent-safe: #30d158;
+      --accent-caution: #f5a623;
+      --accent-danger: #ff3b30;
+      --font-system: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", Inter, sans-serif;
     }
 
     * {
@@ -81,29 +81,31 @@
       touch-action: manipulation;
     }
 
-    button, a, input, select, .btn-launch, .hud-btn {
+    button, a, input, select, .btn-action, .pill-btn {
       -webkit-user-select: auto !important;
       user-select: auto !important;
       cursor: pointer !important;
       pointer-events: auto !important;
       touch-action: manipulation !important;
+      font-family: inherit;
     }
 
     body, html {
       width: 100%;
       height: 100%;
       background: var(--bg);
-      color: var(--text);
-      font-family: var(--font-mono);
+      color: var(--text-primary);
+      font-family: var(--font-system);
       overflow: hidden;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* Windshield Mirror Projection Mode */
+    /* Windshield Reflection Projection HUD Mode */
     .mirror-hud {
       transform: scaleX(-1);
     }
 
-    /* Main Avionics Viewport Container */
+    /* Master Automotive Viewport */
     #hud-viewport {
       position: relative;
       width: 100vw;
@@ -111,12 +113,13 @@
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      padding: 8px 14px;
-      transition: transform 0.25s ease-in-out;
+      padding: env(safe-area-inset-top, 16px) env(safe-area-inset-right, 20px) env(safe-area-inset-bottom, 16px) env(safe-area-inset-left, 20px);
+      transition: transform 0.2s ease-in-out;
       overflow: hidden;
+      background: #000000;
     }
 
-    /* Optical Viewfinder Background */
+    /* Camera Viewfinder (True Optical Road View) */
     #camera-viewport {
       position: absolute;
       inset: 0;
@@ -133,7 +136,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      opacity: 0.92;
+      opacity: 0.95;
     }
 
     #ar-overlay-canvas {
@@ -145,319 +148,357 @@
       z-index: 1;
     }
 
-    /* Foreground HUD Content */
-    .top-tape, .alert-banner, .avionics-cluster, .bottom-strip {
+    /* Floating UI Layers */
+    .hud-header, .alert-ribbon-container, .hud-bottom-dock {
       position: relative;
       z-index: 10;
     }
 
-    /* Top Status Tape */
-    .top-tape {
+    /* 1. Header (Minimalist Floating Glass Bar) */
+    .hud-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      gap: 6px;
-      background: rgba(3, 4, 8, 0.85);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      padding: 5px 12px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-      font-size: 0.72rem;
+      padding: 10px 16px;
+      background: var(--surface);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border-radius: 40px;
+      border: 0.5px solid var(--surface-border);
     }
 
-    .brand-section {
+    .brand-group {
       display: flex;
       align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
+      gap: 14px;
     }
 
-    .logo-text {
-      font-size: 1.15rem;
-      font-weight: 900;
-      letter-spacing: 3px;
-      color: var(--accent);
-      text-shadow: 0 0 12px rgba(0, 240, 255, 0.6);
-    }
-
-    .status-tag {
-      font-size: 0.7rem;
+    .brand-mark {
+      font-size: 0.95rem;
       font-weight: 700;
-      padding: 3px 8px;
-      border-radius: 3px;
-      letter-spacing: 0.5px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      background: rgba(10, 14, 20, 0.7);
-    }
-    .tag-gps { color: var(--safe); border-color: rgba(0, 255, 136, 0.4); }
-    .tag-sim { color: var(--caution); border-color: rgba(255, 170, 0, 0.4); }
-    .tag-warn { color: var(--danger); border-color: rgba(255, 34, 68, 0.4); }
-
-    .top-actions {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-    }
-
-    .hud-btn {
-      background: rgba(12, 16, 24, 0.9);
-      border: 1px solid var(--border);
-      color: var(--text);
-      font-size: 0.72rem;
-      font-weight: 700;
-      padding: 5px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-family: var(--font-mono);
-    }
-    .hud-btn:active {
-      background: rgba(0, 240, 255, 0.3);
-      border-color: var(--accent);
-    }
-
-    /* Dynamic Euro NCAP Hazard Alert Banner */
-    .alert-banner {
-      width: 100%;
-      text-align: center;
-      padding: 8px 14px;
-      border-radius: 6px;
-      margin: 4px 0;
-      border: 1.5px solid transparent;
-      background: rgba(3, 4, 8, 0.88);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      transition: all 0.2s ease-in-out;
-    }
-
-    .alert-banner.level-safe {
-      border-color: rgba(0, 255, 136, 0.35);
-      color: var(--safe);
-    }
-
-    .alert-banner.level-caution {
-      border-color: var(--caution);
-      background: rgba(255, 170, 0, 0.25);
-      color: var(--caution);
-    }
-
-    .alert-banner.level-danger_collision {
-      border-color: var(--danger);
-      background: rgba(255, 34, 68, 0.45);
+      letter-spacing: 2.5px;
       color: #ffffff;
-      animation: alertPulse 0.35s infinite alternate;
     }
 
-    .alert-banner.level-danger_overdriving_vis {
-      border-color: #ff9100;
-      background: rgba(255, 145, 0, 0.35);
-      color: #ffaa00;
-      animation: alertPulse 0.7s infinite alternate;
+    .status-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pill-chip {
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 0.5px solid rgba(255, 255, 255, 0.08);
+      letter-spacing: 0.3px;
+      transition: all 0.2s ease;
+    }
+
+    .pill-safe {
+      color: var(--accent-safe);
+      border-color: rgba(48, 209, 88, 0.3);
+    }
+
+    .pill-warn {
+      color: var(--accent-caution);
+      border-color: rgba(245, 166, 35, 0.3);
+    }
+
+    .pill-danger {
+      color: var(--accent-danger);
+      background: rgba(255, 59, 48, 0.15);
+      border-color: rgba(255, 59, 48, 0.4);
+    }
+
+    .pill-sim {
+      color: #0a84ff;
+      border-color: rgba(10, 132, 255, 0.3);
+    }
+
+    .controls-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pill-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 0.5px solid rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      font-size: 0.74rem;
+      font-weight: 500;
+      padding: 6px 14px;
+      border-radius: 20px;
+      transition: background 0.15s ease, transform 0.1s ease;
+    }
+
+    .pill-btn:active {
+      background: rgba(255, 255, 255, 0.2);
+      transform: scale(0.97);
+    }
+
+    /* 2. Dynamic Alert Ribbon (Appears ONLY during hazard) */
+    .alert-ribbon-container {
+      display: flex;
+      justify-content: center;
+      margin-top: 8px;
+    }
+
+    .alert-ribbon {
+      display: none;
+      padding: 8px 24px;
+      border-radius: 30px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      transition: opacity 0.2s ease;
+    }
+
+    .alert-ribbon.level-caution {
+      display: inline-block;
+      background: rgba(245, 166, 35, 0.2);
+      border: 1px solid var(--accent-caution);
+      color: #ffcc00;
+    }
+
+    .alert-ribbon.level-danger_collision,
+    .alert-ribbon.level-danger_overdriving_vis {
+      display: inline-block;
+      background: rgba(255, 59, 48, 0.3);
+      border: 1px solid var(--accent-danger);
+      color: #ffffff;
+      animation: alertPulse 0.4s infinite alternate ease-in-out;
     }
 
     @keyframes alertPulse {
-      0% { opacity: 0.85; filter: brightness(1); }
-      100% { opacity: 1; filter: brightness(1.4); }
+      0% { transform: scale(1); filter: brightness(1); }
+      100% { transform: scale(1.02); filter: brightness(1.25); }
     }
 
-    .alert-title {
-      font-size: 0.92rem;
-      font-weight: 800;
-      letter-spacing: 1.5px;
-      text-transform: uppercase;
-    }
-
-    /* Avionics Left / Center / Right Cluster */
-    .avionics-cluster {
+    /* 3. Bottom Instrument Sanctuary (Scandinavian Minimalist Dock) */
+    .hud-bottom-dock {
       display: grid;
-      grid-template-columns: 190px 1fr 220px;
-      gap: 12px;
-      align-items: stretch;
-      flex: 1;
-      margin: 4px 0;
-      pointer-events: none;
+      grid-template-columns: 180px 1fr 180px;
+      gap: 16px;
+      align-items: flex-end;
+      padding-bottom: 4px;
     }
 
-    .avionics-tape {
-      background: var(--card-bg);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 12px;
+    .dock-card {
+      background: var(--surface);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border: 0.5px solid var(--surface-border);
+      border-radius: 20px;
+      padding: 14px 18px;
+    }
+
+    /* Speed Cluster */
+    .speed-card {
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      pointer-events: auto;
+      justify-content: center;
     }
 
-    .tape-label {
+    .speed-value-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+
+    .speed-digits {
+      font-size: 4.2rem;
+      font-weight: 300;
+      line-height: 0.85;
+      letter-spacing: -3px;
+      color: #ffffff;
+    }
+
+    .speed-unit-label {
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      color: var(--text-secondary);
+    }
+
+    .speed-subtext {
       font-size: 0.68rem;
-      font-weight: 800;
-      letter-spacing: 2px;
-      color: var(--accent);
-      text-transform: uppercase;
-      border-bottom: 1px solid rgba(0, 240, 255, 0.15);
-      padding-bottom: 4px;
-      margin-bottom: 8px;
+      color: var(--text-tertiary);
+      margin-top: 6px;
+      letter-spacing: 0.5px;
     }
 
-    /* Speed Tape */
-    .speed-display {
+    /* Center Corridor Focus */
+    .center-card {
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      height: 100%;
+      text-align: center;
     }
 
-    .speed-number {
-      font-size: 5rem;
-      font-weight: 900;
-      line-height: 0.9;
-      letter-spacing: -2px;
+    .corridor-lead-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+
+    .corridor-distance {
+      font-size: 2.2rem;
+      font-weight: 600;
+      letter-spacing: -0.5px;
       color: #ffffff;
-      text-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
     }
 
-    .speed-unit {
-      font-size: 0.85rem;
-      font-weight: 800;
-      letter-spacing: 3px;
-      color: var(--text-muted);
-      margin-top: 6px;
+    .corridor-label {
+      font-size: 0.76rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
     }
 
-    /* Center Crosshair Area */
-    .center-crosshair {
+    .corridor-sub-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 4px;
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+    }
+
+    /* Right Stopping Matrix */
+    .stopping-card {
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
-      align-items: center;
-      position: relative;
+      gap: 6px;
     }
 
-    /* Right Kinematics Tape */
     .metric-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 4px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 0.74rem;
     }
 
-    .metric-name {
-      font-size: 0.72rem;
-      color: var(--text-muted);
-      font-weight: 700;
+    .metric-label {
+      color: var(--text-secondary);
+      font-weight: 400;
     }
 
-    .metric-val {
-      font-size: 1.25rem;
-      font-weight: 900;
-      letter-spacing: 0.5px;
+    .metric-value {
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      color: #ffffff;
     }
 
-    .val-safe { color: var(--safe); }
-    .val-caution { color: var(--caution); }
-    .val-danger { color: var(--danger); text-shadow: 0 0 10px rgba(255, 34, 68, 0.6); }
+    .val-safe { color: var(--accent-safe); }
+    .val-caution { color: var(--accent-caution); }
+    .val-danger { color: var(--accent-danger); }
 
-    /* Bottom Info Strip */
-    .bottom-strip {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.68rem;
-      color: var(--text-muted);
-      background: rgba(3, 4, 8, 0.85);
-      backdrop-filter: blur(8px);
-      padding: 4px 12px;
-      border-radius: 6px;
-      border: 1px solid var(--border);
-    }
-
-    /* Desk Simulation Drawer */
+    /* Hidden Simulation Drawer */
     #sim-drawer {
       position: fixed;
       bottom: 0;
       left: 0;
       right: 0;
-      background: rgba(8, 10, 16, 0.98);
-      backdrop-filter: blur(16px);
-      border-top: 2px solid var(--accent);
-      padding: 16px 20px;
+      background: rgba(14, 15, 18, 0.96);
+      backdrop-filter: blur(32px);
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+      padding: 24px 30px;
       transform: translateY(100%);
-      transition: transform 0.25s ease-out;
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
       z-index: 100;
       max-height: 80vh;
       overflow-y: auto;
+      border-top-left-radius: 24px;
+      border-top-right-radius: 24px;
     }
 
     #sim-drawer.open {
       transform: translateY(0);
     }
 
-    .sim-controls-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
-      margin-top: 10px;
-    }
-
-    .sim-control-group {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .sim-control-group label {
-      font-size: 0.72rem;
-      font-weight: 700;
-      color: var(--text-muted);
+    .drawer-header {
       display: flex;
       justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
     }
 
-    input[type=range] {
-      accent-color: var(--accent);
-      width: 100%;
-      height: 24px;
+    .drawer-title {
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
     }
 
-    select {
-      background: #141824;
-      color: #ffffff;
-      border: 1px solid var(--border);
-      padding: 6px;
-      border-radius: 4px;
-      font-size: 0.75rem;
-      font-family: var(--font-mono);
-    }
-
-    .scenario-buttons {
-      display: flex;
-      gap: 6px;
-      margin-top: 10px;
-      flex-wrap: wrap;
+    .scenario-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 10px;
+      margin-bottom: 20px;
     }
 
     .btn-scenario {
-      background: #161c28;
-      border: 1px solid var(--border);
-      color: #fff;
-      font-size: 0.72rem;
-      font-weight: 700;
-      padding: 6px 10px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-family: var(--font-mono);
-    }
-    .btn-scenario:hover {
-      background: var(--accent);
-      color: #000;
+      background: rgba(255, 255, 255, 0.06);
+      border: 0.5px solid rgba(255, 255, 255, 0.12);
+      color: #ffffff;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-align: left;
+      transition: background 0.15s ease;
     }
 
-    /* Splash Screen Overlay */
+    .btn-scenario:active {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .sim-sliders-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .slider-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .slider-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      height: 4px;
+      border-radius: 2px;
+      outline: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ffffff;
+      cursor: pointer;
+    }
+
+    /* Splash Screen (Executive Minimalist Introduction) */
     #splash-overlay {
       position: fixed;
       inset: 0;
@@ -467,7 +508,7 @@
       justify-content: center;
       align-items: center;
       z-index: 9999;
-      padding: 24px;
+      padding: 30px;
       text-align: center;
     }
 
@@ -475,217 +516,239 @@
       display: none !important;
     }
 
-    .splash-title {
-      font-size: 2.6rem;
-      font-weight: 900;
-      letter-spacing: 5px;
-      color: var(--accent);
-      text-shadow: 0 0 24px rgba(0, 240, 255, 0.7);
-      margin-bottom: 6px;
+    .splash-brand {
+      font-size: 3rem;
+      font-weight: 300;
+      letter-spacing: 8px;
+      color: #ffffff;
+      margin-bottom: 8px;
     }
 
-    .splash-subtitle {
-      font-size: 0.88rem;
-      color: var(--text-muted);
-      margin-bottom: 24px;
-      max-width: 500px;
-      line-height: 1.5;
+    .splash-tagline {
+      font-size: 0.95rem;
+      font-weight: 400;
+      color: var(--text-secondary);
+      max-width: 440px;
+      line-height: 1.6;
+      margin-bottom: 32px;
+      letter-spacing: 0.3px;
     }
 
-    .splash-badges {
+    .splash-spec-pills {
       display: flex;
-      gap: 8px;
-      margin-bottom: 30px;
+      gap: 10px;
+      margin-bottom: 36px;
       flex-wrap: wrap;
       justify-content: center;
     }
 
-    .badge-item {
-      background: rgba(0, 240, 255, 0.08);
-      border: 1px solid rgba(0, 240, 255, 0.3);
-      padding: 6px 12px;
-      border-radius: 4px;
-      font-size: 0.72rem;
-      color: var(--accent);
-      font-weight: 700;
+    .spec-pill {
+      background: rgba(255, 255, 255, 0.05);
+      border: 0.5px solid rgba(255, 255, 255, 0.1);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-weight: 400;
     }
 
-    .btn-launch {
-      background: var(--safe);
+    .btn-engage {
+      background: #ffffff;
       color: #000000;
-      font-size: 1.15rem;
-      font-weight: 900;
-      letter-spacing: 2px;
-      padding: 18px 40px;
-      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      letter-spacing: 1px;
+      padding: 16px 42px;
+      border-radius: 30px;
       border: none;
       cursor: pointer;
-      box-shadow: 0 0 28px rgba(0, 255, 136, 0.6);
-      font-family: var(--font-mono);
+      box-shadow: 0 4px 24px rgba(255, 255, 255, 0.15);
+      transition: transform 0.15s ease, opacity 0.15s ease;
     }
-    .btn-launch:active {
-      transform: scale(0.96);
+
+    .btn-engage:active {
+      transform: scale(0.97);
+      opacity: 0.9;
+    }
+
+    /* Mobile Responsive Adaptation */
+    @media (max-width: 768px) {
+      .hud-bottom-dock {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .dock-card {
+        padding: 10px 14px;
+      }
+      .speed-digits {
+        font-size: 3.2rem;
+      }
+      .status-group .pill-chip:nth-child(n+4) {
+        display: none;
+      }
     }
   </style>
 </head>
 <body>
 
-  <!-- Mandatory Audio Gesture & Safety Notice Splash -->
+  <!-- Mandatory User Gesture & Safety Notice Splash -->
   <div id="splash-overlay">
-    <div class="splash-title">DATUM</div>
-    <div class="splash-subtitle">
-      Mission-Critical Automotive Avionics & ADAS Telemetry.<br>
-      High-precision optical looming, ground laser envelope, and IMU horizon fusion.
+    <div class="splash-brand">DATUM</div>
+    <div class="splash-tagline">
+      Quiet, deterministic automotive intelligence.<br>
+      Zero cloud latency. Zero video retention. Absolute clarity.
     </div>
 
-    <div class="splash-badges">
-      <div class="badge-item">🛡️ Zero Video Recording</div>
-      <div class="badge-item">⚡ 160×120 Ephemeral Stream</div>
-      <div class="badge-item">📐 60 Hz Gyro Horizon Stabilization</div>
-      <div class="badge-item">🛰️ Satellite GNSS Truth</div>
+    <div class="splash-spec-pills">
+      <div class="spec-pill">Zero Video Retention</div>
+      <div class="spec-pill">160×120 Ephemeral Stream</div>
+      <div class="spec-pill">60 Hz IMU Attitude Fusion</div>
+      <div class="spec-pill">GNSS Ground Truth</div>
     </div>
 
-    <button id="btn-main-start" class="btn-launch" onclick="window.__launchAdas(event)" ontouchend="window.__launchAdas(event)">ENGAGE AVIONICS HUD</button>
+    <button id="btn-main-start" class="btn-engage" onclick="window.__launchAdas(event)" ontouchend="window.__launchAdas(event)">INITIALIZE SANCTUARY HUD</button>
   </div>
 
   <!-- Primary Automotive HUD Viewport -->
   <div id="hud-viewport">
 
-    <!-- Camera Viewfinder & AR Overlay -->
+    <!-- Pure Optical Camera Viewport -->
     <div id="camera-viewport">
       <video id="live-camera-video" playsinline webkit-playsinline muted autoplay></video>
       <canvas id="ar-overlay-canvas"></canvas>
     </div>
 
-    <!-- Top Status Tape -->
-    <header class="top-tape">
-      <div class="brand-section">
-        <span class="logo-text">DATUM</span>
-        <span id="hud-camera-status" class="status-tag tag-warn">OPTICAL: CONNECTING...</span>
-        <span id="hud-imu-status" class="status-tag">ATTITUDE: LEVEL</span>
-        <span id="hud-gps-status" class="status-tag tag-warn">GNSS: ACQUIRING...</span>
-        <span id="hud-closing-speed" class="status-tag tag-gps">Δv 0 mph</span>
-        <span id="hud-brake-lights" class="status-tag">⚪ TAILLIGHTS</span>
+    <!-- 1. Minimalist Floating Header -->
+    <header class="hud-header">
+      <div class="brand-group">
+        <span class="brand-mark">DATUM</span>
+        <div class="status-group">
+          <span id="hud-gps-status" class="pill-chip">● GNSS</span>
+          <span id="hud-camera-status" class="pill-chip">● OPTICAL</span>
+          <span id="hud-imu-status" class="pill-chip">● LEVEL</span>
+          <span id="hud-closing-speed" class="pill-chip">Δv 0 mph</span>
+          <span id="hud-brake-lights" class="pill-chip">○ BRAKES</span>
+        </div>
       </div>
 
-      <div class="top-actions">
-        <button id="btn-mirror-toggle" class="hud-btn">🪞 Mirror HUD</button>
-        <button id="btn-mute-toggle" class="hud-btn">🔊 Sound</button>
-        <button id="btn-sim-drawer-toggle" class="hud-btn">⚙️ Sim</button>
+      <div class="controls-group">
+        <button id="btn-mirror-toggle" class="pill-btn">🪞 Windshield HUD</button>
+        <button id="btn-mute-toggle" class="pill-btn">🔊 Sound</button>
+        <button id="btn-sim-drawer-toggle" class="pill-btn">⚙️ Demo</button>
       </div>
     </header>
 
-    <!-- Dynamic Euro NCAP Hazard Banner -->
-    <section id="hud-alert-banner" class="alert-banner level-safe">
-      <div id="hud-alert-msg" class="alert-title">DATUM ACTIVE • ALL CORRIDORS MONITORED</div>
-    </section>
+    <!-- 2. Dynamic Alert Ribbon (Hidden during normal driving) -->
+    <div class="alert-ribbon-container">
+      <div id="hud-alert-banner" class="alert-ribbon">
+        <span id="hud-alert-msg"></span>
+      </div>
+    </div>
 
-    <!-- Avionics Instrumentation Cluster -->
-    <main class="avionics-cluster">
-      <!-- Left Flank: Speed & Heading Tape -->
-      <div class="avionics-tape">
-        <div class="tape-label">Ground Velocity</div>
-        <div class="speed-display">
-          <div id="hud-speed-val" class="speed-number">0</div>
-          <div class="speed-unit">MPH (GNSS)</div>
+    <!-- 3. Bottom Instrument Sanctuary -->
+    <footer class="hud-bottom-dock">
+      <!-- Left: Speed -->
+      <div class="dock-card speed-card">
+        <div class="speed-value-row">
+          <div id="hud-speed-val" class="speed-digits">0</div>
+          <div class="speed-unit-label">MPH</div>
         </div>
-        <div style="font-size: 0.68rem; color: var(--text-muted); text-align: center;">
-          <span id="hud-vehicle-badge">SEDAN (1.25m)</span>
+        <div class="speed-subtext">GNSS SATELLITE VELOCITY</div>
+      </div>
+
+      <!-- Center: Lead Corridor Focus -->
+      <div class="dock-card center-card">
+        <div class="corridor-lead-row">
+          <div id="hud-target-dist" class="corridor-distance">CLEAR</div>
+          <div class="corridor-label">LEAD VEHICLE</div>
+        </div>
+        <div class="corridor-sub-row">
+          <span>Sightline <strong id="hud-vis-range" style="color: #ffffff;">250m</strong></span>
+          <span>Traction <strong id="hud-friction" style="color: #ffffff;">μ 0.82</strong></span>
         </div>
       </div>
 
-      <!-- Center Crosshair Reticle -->
-      <div class="center-crosshair"></div>
-
-      <!-- Right Flank: Kinematic Envelope & Stopping Limits -->
-      <div class="avionics-tape">
-        <div class="tape-label">Kinematic Envelope</div>
-        
+      <!-- Right: Stopping Matrix -->
+      <div class="dock-card stopping-card">
         <div class="metric-row">
-          <span class="metric-name">Lead Vehicle Distance</span>
-          <span id="hud-target-dist" class="metric-val" style="color: var(--accent);">120m</span>
+          <span class="metric-label">Stopping Envelope</span>
+          <span id="hud-stopping-dist" class="metric-value">0m</span>
         </div>
-
         <div class="metric-row">
-          <span class="metric-name">Stopping Envelope (v+μ)</span>
-          <span id="hud-stopping-dist" class="metric-val val-caution">0m</span>
+          <span class="metric-label">Safety Margin</span>
+          <span id="hud-safety-margin" class="metric-value val-safe">+120m</span>
         </div>
-
         <div class="metric-row">
-          <span class="metric-name">Net Safety Margin</span>
-          <span id="hud-safety-margin" class="metric-val val-safe">+120m</span>
-        </div>
-
-        <div class="metric-row">
-          <span class="metric-name">Optical Looming (TTC)</span>
-          <span id="hud-ttc" class="metric-val" style="color: #ff5252;">--</span>
-        </div>
-
-        <div style="margin-top: 8px; font-size: 0.68rem; color: var(--text-muted);">
-          <div>Sightline: <span id="hud-vis-range">250m</span></div>
-          <div>Traction: <span id="hud-friction">μ 0.82</span></div>
+          <span class="metric-label">Time To Collision</span>
+          <span id="hud-ttc" class="metric-value">--</span>
         </div>
       </div>
-    </main>
-
-    <!-- Bottom Strip -->
-    <footer class="bottom-strip">
-      <span>DATUM AVIONICS v2.4 • 160×120 EPHEMERAL OPTICAL BUFFER</span>
-      <span>RESPONSIBILITY-SENSITIVE SAFETY (RSS) • 100% AIR-GAPPED</span>
     </footer>
+
   </div>
 
-  <!-- Desk Simulation Drawer -->
+  <!-- Calibration & Desk Simulation Drawer -->
   <aside id="sim-drawer">
-    <div style="display: flex; justify-content: space-between; align-items: center;">
-      <button id="btn-sim-toggle" class="hud-btn" style="background: #141824; font-size: 0.8rem;">🎮 Sim Mode: OFF</button>
-      <button id="btn-sim-close" class="hud-btn">✕ Close Drawer</button>
+    <div class="drawer-header">
+      <div class="drawer-title">Kinematic Simulation & Calibration</div>
+      <div style="display: flex; gap: 8px;">
+        <button id="btn-sim-toggle" class="pill-btn" style="background: rgba(10, 132, 255, 0.2); border-color: #0a84ff;">Simulation: OFF</button>
+        <button id="btn-sim-close" class="pill-btn">✕ Done</button>
+      </div>
     </div>
 
-    <div class="scenario-buttons">
-      <button id="btn-scenario-brake" class="btn-scenario">🚨 Cut-In & Brake Slam (75 mph)</button>
-      <button id="btn-scenario-fog" class="btn-scenario">🌫️ Dense Fog Sightline Breach</button>
-      <button id="btn-scenario-cruise" class="btn-scenario">🛣️ Safe Highway Cruise</button>
+    <div class="scenario-grid">
+      <button id="btn-scenario-brake" class="btn-scenario">🚨 Emergency Cut-In & Brake Slam</button>
+      <button id="btn-scenario-fog" class="btn-scenario">🌫️ Mountain Fog Sightline Breach</button>
+      <button id="btn-scenario-cruise" class="btn-scenario">🟢 Clear Highway Cruise</button>
     </div>
 
-    <div class="sim-controls-grid">
-      <div class="sim-control-group">
-        <label>Ground Speed: <span id="val-sim-speed">45 mph</span></label>
-        <input type="range" id="slider-speed" min="0" max="100" value="45">
+    <div class="sim-sliders-grid">
+      <div class="slider-item">
+        <div class="slider-label-row">
+          <span>Vehicle Speed</span>
+          <span id="val-sim-speed">65 mph</span>
+        </div>
+        <input type="range" id="slider-speed" min="0" max="110" value="65">
       </div>
 
-      <div class="sim-control-group">
-        <label>Lead Distance: <span id="val-sim-dist">60 m</span></label>
-        <input type="range" id="slider-dist" min="5" max="150" value="60">
+      <div class="slider-item">
+        <div class="slider-label-row">
+          <span>Lead Target Distance</span>
+          <span id="val-sim-dist">35 m</span>
+        </div>
+        <input type="range" id="slider-dist" min="5" max="120" value="35">
       </div>
 
-      <div class="sim-control-group">
-        <label>Atmospheric Clarity: <span id="val-sim-vis">100 %</span></label>
+      <div class="slider-item">
+        <div class="slider-label-row">
+          <span>Optical Visibility</span>
+          <span id="val-sim-vis">100 %</span>
+        </div>
         <input type="range" id="slider-vis" min="10" max="100" value="100">
       </div>
+    </div>
 
-      <div class="sim-control-group">
-        <label>Atmospheric Condition</label>
-        <select id="select-cond">
-          <option value="CLEAR">CLEAR (Dry Asphalt, μ 0.82)</option>
-          <option value="FOG_HAZE">FOG / HAZE (Wet Mist, μ 0.45)</option>
-          <option value="GLARE">GLARE (Direct Sun Dazzle, μ 0.65)</option>
-          <option value="LOW_LIGHT">LOW LIGHT (Night Headlights, μ 0.72)</option>
+    <div style="display: flex; gap: 16px; font-size: 0.8rem; color: var(--text-secondary);">
+      <label>Road Surface:
+        <select id="select-cond" style="background: #222; color: #fff; border: 1px solid #444; border-radius: 6px; padding: 4px 8px; margin-left: 6px;">
+          <option value="CLEAR">Dry Asphalt (μ 0.82)</option>
+          <option value="FOG_HAZE">Wet / Fog (μ 0.40)</option>
+          <option value="GLARE">Direct Glare (μ 0.60)</option>
+          <option value="LOW_LIGHT">Night / Low Light (μ 0.65)</option>
         </select>
-      </div>
+      </label>
 
-      <div class="sim-control-group">
-        <label>Vehicle Optical Height Preset</label>
-        <select id="select-vehicle">
-          <option value="SEDAN">SEDAN / COUPE (1.25m elevation)</option>
-          <option value="SUV">SUV / CROSSOVER (1.55m elevation)</option>
-          <option value="TRUCK">VAN / LIGHT TRUCK (1.90m elevation)</option>
+      <label>Mounting Profile:
+        <select id="select-vehicle" style="background: #222; color: #fff; border: 1px solid #444; border-radius: 6px; padding: 4px 8px; margin-left: 6px;">
+          <option value="SEDAN">Sedan (1.25m mount)</option>
+          <option value="SUV">SUV (1.50m mount)</option>
+          <option value="TRUCK">Heavy Truck (2.10m mount)</option>
         </select>
-      </div>
+      </label>
     </div>
   </aside>
 
-  <!-- Main ES Module Script -->
   <script type="module" src="./src/main.js"></script>
 </body>
 </html>

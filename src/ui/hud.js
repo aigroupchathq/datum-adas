@@ -1,7 +1,11 @@
 /**
- * Datum Avionics Primary Flight & ADAS HUD Renderer
- * 60 FPS Canvas-Engineered Telemetry with Ground-Plane Distance Grid,
- * Dynamic Stopping Envelope Laser, and Artificial Horizon Pitch Ladder.
+ * Datum ADAS — Sanctuary Minimalist HUD Renderer
+ * Designed to World-Class Luxury & Safety Standards (Scandinavian Sanctuary / Cupertino Human Interface)
+ * 
+ * Design Principles:
+ * 1. "Calm Technology" — The road is the hero. Zero visual noise during nominal driving.
+ * 2. Unobtrusive Optics — Whisper-thin 1px laser brackets, subtle road curvature arc, no arcade clutter.
+ * 3. Zero-Light Bleed — True OLED pitch blacks for zero-glare night windshield projection.
  */
 
 import { telemetryState } from '../state.js';
@@ -60,24 +64,35 @@ function renderLoop() {
   if (!isRunning) return;
 
   renderState();
-  renderAvionicsOverlay();
+  renderMinimalOptics();
   evaluateAudioAlert(telemetryState.alertLevel);
 
   requestAnimationFrame(renderLoop);
 }
 
 function renderState() {
-  // Speedometer
-  if (speedValEl) speedValEl.textContent = telemetryState.speedMph;
+  // 1. Primary Speed (Clean, immediate glanceability)
+  if (speedValEl) {
+    speedValEl.textContent = telemetryState.speedMph;
+  }
 
-  // Kinematic Envelope
-  if (targetDistValEl) targetDistValEl.textContent = `${telemetryState.targetDistanceM}m`;
-  if (stoppingDistValEl) stoppingDistValEl.textContent = `${telemetryState.stoppingDistanceM}m`;
+  // 2. Kinematic Metrics (Calm, tabular readouts)
+  if (targetDistValEl) {
+    if (telemetryState.targetDistanceM >= 120) {
+      targetDistValEl.textContent = 'CLEAR';
+    } else {
+      targetDistValEl.textContent = `${telemetryState.targetDistanceM}m`;
+    }
+  }
+
+  if (stoppingDistValEl) {
+    stoppingDistValEl.textContent = `${telemetryState.stoppingDistanceM}m`;
+  }
 
   if (safetyMarginValEl) {
     const margin = telemetryState.safetyMarginM;
     safetyMarginValEl.textContent = `${margin > 0 ? '+' : ''}${margin}m`;
-    safetyMarginValEl.className = `metric-val ${margin > 20 ? 'val-safe' : margin > 0 ? 'val-caution' : 'val-danger'}`;
+    safetyMarginValEl.className = `metric-value ${margin > 20 ? 'val-safe' : margin > 0 ? 'val-caution' : 'val-danger'}`;
   }
 
   if (ttcValEl) {
@@ -88,93 +103,90 @@ function renderState() {
     }
   }
 
-  // Closing Speed Vector
+  // 3. Closing Speed (Discreet, high-priority vector)
   if (closingSpeedEl) {
     const cv = telemetryState.targetClosingSpeedMph;
     if (cv > 2) {
-      closingSpeedEl.textContent = `Δv +${cv} mph (CLOSING)`;
-      closingSpeedEl.className = 'status-tag tag-warn';
+      closingSpeedEl.textContent = `Δv +${cv} mph`;
+      closingSpeedEl.className = 'pill-chip pill-warn';
     } else {
-      closingSpeedEl.textContent = 'Δv 0 mph (STABLE)';
-      closingSpeedEl.className = 'status-tag tag-gps';
+      closingSpeedEl.textContent = 'Δv 0 mph';
+      closingSpeedEl.className = 'pill-chip';
     }
   }
 
-  // Brake Light Indicator
+  // 4. Brake Light Indicator
   if (brakeLightsEl) {
     if (telemetryState.targetBrakeLightsDetected) {
-      brakeLightsEl.textContent = '🔴 LEAD BRAKE LIGHTS';
-      brakeLightsEl.className = 'status-tag tag-warn';
+      brakeLightsEl.textContent = '● BRAKE LIGHTS';
+      brakeLightsEl.className = 'pill-chip pill-danger';
     } else {
-      brakeLightsEl.textContent = '⚪ TAILLIGHTS NOMINAL';
-      brakeLightsEl.className = 'status-tag';
+      brakeLightsEl.textContent = '○ BRAKES';
+      brakeLightsEl.className = 'pill-chip';
     }
   }
 
-  // Vision & Atmospheric Sightline
-  if (visRangeValEl) visRangeValEl.textContent = `${telemetryState.visibilityRangeM}m (${telemetryState.roadCondition})`;
-  if (frictionValEl) frictionValEl.textContent = `μ ${telemetryState.assumedFrictionMu.toFixed(2)} (${telemetryState.surfaceType})`;
+  // 5. Environmental Surface & Sightline
+  if (visRangeValEl) {
+    visRangeValEl.textContent = `${telemetryState.visibilityRangeM}m`;
+  }
+  if (frictionValEl) {
+    frictionValEl.textContent = `μ ${telemetryState.assumedFrictionMu.toFixed(2)}`;
+  }
 
-  // GPS Status
+  // 6. Discrete Status Indicators (Muted, quiet dots)
   if (gpsStatusEl) {
-    if (telemetryState.isSimMode) {
-      gpsStatusEl.textContent = 'GNSS: SIMULATED';
-      gpsStatusEl.className = 'status-tag tag-sim';
-    } else if (telemetryState.gpsAccuracyM !== null) {
-      gpsStatusEl.textContent = `GNSS: ±${telemetryState.gpsAccuracyM}m`;
-      gpsStatusEl.className = 'status-tag tag-gps';
+    if (telemetryState.gpsStatus === 'ACTIVE') {
+      gpsStatusEl.textContent = '● GNSS';
+      gpsStatusEl.className = 'pill-chip pill-safe';
+    } else if (telemetryState.gpsStatus === 'DENIED') {
+      gpsStatusEl.textContent = '○ NO GNSS';
+      gpsStatusEl.className = 'pill-chip pill-warn';
     } else {
-      gpsStatusEl.textContent = 'GNSS: ACQUIRING...';
-      gpsStatusEl.className = 'status-tag tag-warn';
+      gpsStatusEl.textContent = '● GNSS (SIM)';
+      gpsStatusEl.className = 'pill-chip pill-sim';
     }
   }
 
-  // IMU Attitude
   if (imuStatusEl) {
-    if (telemetryState.imuConfidence === 'NOMINAL') {
-      imuStatusEl.textContent = `ATTITUDE: θ ${telemetryState.pitchDeg > 0 ? '+' : ''}${telemetryState.pitchDeg}° φ ${telemetryState.rollDeg}°`;
-      imuStatusEl.className = 'status-tag tag-gps';
-    } else if (telemetryState.imuConfidence === 'HIGH_VIBRATION') {
-      imuStatusEl.textContent = 'IMU: HIGH VIBRATION';
-      imuStatusEl.className = 'status-tag tag-warn';
+    const pitch = telemetryState.pitchDeg;
+    if (Math.abs(pitch) > 0.5) {
+      imuStatusEl.textContent = `● PITCH ${pitch > 0 ? '+' : ''}${pitch.toFixed(1)}°`;
     } else {
-      imuStatusEl.textContent = 'IMU: LEVEL (AUTO)';
-      imuStatusEl.className = 'status-tag';
+      imuStatusEl.textContent = '● LEVEL';
     }
   }
 
-  // Camera Status
   if (cameraStatusEl) {
     if (telemetryState.cameraStatus === 'ACTIVE') {
-      const res = telemetryState.cameraResolution ? ` ${telemetryState.cameraResolution}` : '';
-      cameraStatusEl.textContent = `OPTICAL: ACTIVE (10Hz${res})`;
-      cameraStatusEl.className = 'status-tag tag-gps';
+      cameraStatusEl.textContent = '● OPTICAL';
+      cameraStatusEl.className = 'pill-chip pill-safe';
     } else if (telemetryState.cameraStatus === 'DENIED' || telemetryState.cameraStatus === 'ERROR') {
-      cameraStatusEl.textContent = 'OPTICAL: BLOCKED (RETRY)';
-      cameraStatusEl.className = 'status-tag tag-warn';
+      cameraStatusEl.textContent = '○ CAM BLOCKED';
+      cameraStatusEl.className = 'pill-chip pill-warn';
     } else {
-      cameraStatusEl.textContent = 'OPTICAL: DEMO STREAM';
-      cameraStatusEl.className = 'status-tag tag-sim';
+      cameraStatusEl.textContent = '● DEMO STREAM';
+      cameraStatusEl.className = 'pill-chip pill-sim';
     }
   }
 
-  // Dynamic Hazard Alert Banner
+  // 7. Dynamic Alert Ribbon (Appears ONLY when attention is needed)
   if (alertBannerEl && alertMessageEl) {
     const level = telemetryState.alertLevel;
-    alertBannerEl.className = `alert-banner level-${level.toLowerCase()}`;
+    alertBannerEl.className = `alert-ribbon level-${level.toLowerCase()}`;
 
     switch (level) {
       case 'DANGER_COLLISION':
-        alertMessageEl.textContent = `⚠ BRAKE! IMMINENT IMPACT (TTC ${telemetryState.timeToCollisionSec}s | MARGIN ${telemetryState.safetyMarginM}m)`;
+        alertMessageEl.textContent = `BRAKE IMMINENT — TTC ${telemetryState.timeToCollisionSec}s`;
         break;
       case 'DANGER_OVERDRIVING_VIS':
-        alertMessageEl.textContent = `⚠ OVERDRIVING SIGHTLINE! STOPPING DIST (${telemetryState.stoppingDistanceM}m) > VISIBILITY (${telemetryState.visibilityRangeM}m)`;
+        alertMessageEl.textContent = `REDUCE SPEED — SIGHTLINE RESTRICTED (${telemetryState.visibilityRangeM}m)`;
         break;
       case 'CAUTION':
-        alertMessageEl.textContent = `CAUTION: CLOSING SENSITIVITY ACTIVE • MAINTAIN DISTANCE`;
+        alertMessageEl.textContent = `CLOSING SENSITIVITY ACTIVE`;
         break;
       default:
-        alertMessageEl.textContent = `DATUM ACTIVE • ALL CORRIDORS MONITORED`;
+        alertMessageEl.textContent = ``;
         break;
     }
   }
@@ -186,9 +198,10 @@ function renderState() {
 }
 
 /**
- * High-Precision Avionics Vector Overlay (The True "Datum" Look)
+ * World-Class Minimal Optics:
+ * Clean, serene, laser-etched precision on transparent canvas.
  */
-function renderAvionicsOverlay() {
+function renderMinimalOptics() {
   if (!arCanvas || !arCtx) return;
 
   const w = arCanvas.clientWidth;
@@ -208,133 +221,67 @@ function renderAvionicsOverlay() {
   const H_CAM = telemetryState.cameraHeightM;
 
   // -------------------------------------------------------------
-  // 1. Artificial Horizon & Pitch Ladder (Aviation PFD Style)
+  // 1. Serene Horizon Reference Line (Subtle 10% opacity hairline)
   // -------------------------------------------------------------
   arCtx.save();
-  // Rotate slightly with vehicle roll if present
   if (telemetryState.rollDeg) {
     arCtx.translate(w / 2, horizonPx);
     arCtx.rotate((telemetryState.rollDeg * Math.PI) / 180);
     arCtx.translate(-w / 2, -horizonPx);
   }
 
-  // Main horizon line with center break for aircraft reticle
-  arCtx.strokeStyle = 'rgba(0, 240, 255, 0.45)';
-  arCtx.lineWidth = 1.5;
+  arCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  arCtx.lineWidth = 1;
   arCtx.beginPath();
-  arCtx.moveTo(w * 0.1, horizonPx);
-  arCtx.lineTo(w * 0.44, horizonPx);
-  arCtx.moveTo(w * 0.56, horizonPx);
-  arCtx.lineTo(w * 0.9, horizonPx);
+  arCtx.moveTo(w * 0.25, horizonPx);
+  arCtx.lineTo(w * 0.45, horizonPx);
+  arCtx.moveTo(w * 0.55, horizonPx);
+  arCtx.lineTo(w * 0.75, horizonPx);
   arCtx.stroke();
-
-  // Pitch ladder ticks: +5 deg, -5 deg
-  const pitchStepPx = F_Y * Math.tan((5 * Math.PI) / 180);
-  arCtx.strokeStyle = 'rgba(0, 240, 255, 0.25)';
-  arCtx.setLineDash([4, 4]);
-
-  // +5 deg ladder
-  arCtx.beginPath();
-  arCtx.moveTo(w * 0.42, horizonPx - pitchStepPx);
-  arCtx.lineTo(w * 0.46, horizonPx - pitchStepPx);
-  arCtx.moveTo(w * 0.54, horizonPx - pitchStepPx);
-  arCtx.lineTo(w * 0.58, horizonPx - pitchStepPx);
-  arCtx.stroke();
-
-  // -5 deg ladder
-  arCtx.beginPath();
-  arCtx.moveTo(w * 0.42, horizonPx + pitchStepPx);
-  arCtx.lineTo(w * 0.46, horizonPx + pitchStepPx);
-  arCtx.moveTo(w * 0.54, horizonPx + pitchStepPx);
-  arCtx.lineTo(w * 0.58, horizonPx + pitchStepPx);
-  arCtx.stroke();
-
-  arCtx.setLineDash([]);
   arCtx.restore();
 
   // -------------------------------------------------------------
-  // 2. Optical Lane Corridor & Ground Distance Grid (10m, 25m, 50m, 100m)
-  // -------------------------------------------------------------
-  const leftBottomX = w * 0.12;
-  const rightBottomX = w * 0.88;
-  const leftHorizonX = w * 0.44;
-  const rightHorizonX = w * 0.56;
-
-  // Lateral Lane Perspective Rays
-  arCtx.strokeStyle = 'rgba(0, 255, 136, 0.3)';
-  arCtx.lineWidth = 2;
-  arCtx.beginPath();
-  arCtx.moveTo(leftHorizonX, horizonPx);
-  arCtx.lineTo(leftBottomX, h);
-  arCtx.moveTo(rightHorizonX, horizonPx);
-  arCtx.lineTo(rightBottomX, h);
-  arCtx.stroke();
-
-  // Transverse Ground Distance Markers
-  const depthMarksM = [15, 30, 60, 100];
-  arCtx.fillStyle = 'rgba(0, 240, 255, 0.6)';
-  arCtx.font = '10px monospace';
-
-  depthMarksM.forEach(dist => {
-    // Ground projection: y_pixel = y_horizon + (H_cam * fy) / distance
-    const yPx = horizonPx + (H_CAM * F_Y) / dist;
-    if (yPx > horizonPx && yPx < h) {
-      // Calculate lane width at this depth
-      const normDepth = (yPx - horizonPx) / (h - horizonPx);
-      const curLeft = leftHorizonX + (leftBottomX - leftHorizonX) * normDepth;
-      const curRight = rightHorizonX + (rightBottomX - rightHorizonX) * normDepth;
-
-      arCtx.strokeStyle = 'rgba(0, 240, 255, 0.18)';
-      arCtx.lineWidth = 1;
-      arCtx.beginPath();
-      arCtx.moveTo(curLeft, yPx);
-      arCtx.lineTo(curRight, yPx);
-      arCtx.stroke();
-
-      arCtx.fillText(`${dist}m`, curLeft - 28, yPx + 3);
-    }
-  });
-
-  // -------------------------------------------------------------
-  // 3. Dynamic Stopping Envelope Ground Laser Bar
-  // Shows physically where the vehicle will come to a halt right now
+  // 2. Dynamic Road Stopping Arc (Subtle, elegant curved horizon)
   // -------------------------------------------------------------
   const stoppingDistM = telemetryState.stoppingDistanceM;
-  if (stoppingDistM > 5 && stoppingDistM < 140) {
+  if (stoppingDistM > 8 && stoppingDistM < 130) {
     const stopY = horizonPx + (H_CAM * F_Y) / stoppingDistM;
-    if (stopY > horizonPx && stopY < h) {
-      const normDepth = (stopY - horizonPx) / (h - horizonPx);
-      const curLeft = leftHorizonX + (leftBottomX - leftHorizonX) * normDepth;
-      const curRight = rightHorizonX + (rightBottomX - rightHorizonX) * normDepth;
-
+    if (stopY > horizonPx + 10 && stopY < h - 40) {
       const isBreached = telemetryState.targetDistanceM <= stoppingDistM;
-      arCtx.strokeStyle = isBreached ? '#ff2244' : '#ffaa00';
-      arCtx.lineWidth = 3;
-      arCtx.shadowColor = isBreached ? '#ff2244' : '#ffaa00';
-      arCtx.shadowBlur = 10;
+      const arcWidth = Math.min(w * 0.55, 60 + (stopY - horizonPx) * 1.2);
+      const arcLeft = (w - arcWidth) / 2;
+      const arcRight = (w + arcWidth) / 2;
 
+      arCtx.save();
+      if (isBreached) {
+        arCtx.strokeStyle = 'rgba(255, 59, 48, 0.85)';
+        arCtx.lineWidth = 2.5;
+        arCtx.shadowColor = 'rgba(255, 59, 48, 0.5)';
+        arCtx.shadowBlur = 8;
+      } else {
+        arCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        arCtx.lineWidth = 1;
+      }
+
+      // Soft curved stopping boundary
       arCtx.beginPath();
-      arCtx.moveTo(curLeft - 10, stopY);
-      arCtx.lineTo(curRight + 10, stopY);
+      arCtx.moveTo(arcLeft, stopY);
+      arCtx.quadraticCurveTo(w / 2, stopY + 4, arcRight, stopY);
       arCtx.stroke();
-
-      arCtx.shadowBlur = 0;
-      arCtx.fillStyle = isBreached ? '#ff2244' : '#ffaa00';
-      arCtx.font = 'bold 11px monospace';
-      arCtx.fillText(`STOP LIMIT ${stoppingDistM}m`, curRight + 14, stopY + 4);
+      arCtx.restore();
     }
   }
 
   // -------------------------------------------------------------
-  // 4. 3D Lead Vehicle Reticle with Closing Speed & Brake Lights
+  // 3. Lead Vehicle Tracking Halo (Bespoke Minimal Corner Brackets)
   // -------------------------------------------------------------
   let bbox = telemetryState.obstacleBbox;
 
   if (telemetryState.isSimMode && telemetryState.targetDistanceM < 120) {
     const simNorm = Math.max(0, Math.min(1, (120 - telemetryState.targetDistanceM) / 115));
-    const boxW = 16 + (simNorm * 38);
+    const boxW = 20 + (simNorm * 40);
     const boxH = boxW * 0.65;
-    const boxY = (telemetryState.horizonY + 4) + (simNorm * (110 - telemetryState.horizonY - 4));
+    const boxY = (telemetryState.horizonY + 6) + (simNorm * (108 - telemetryState.horizonY - 6));
     bbox = {
       x: 80 - Math.floor(boxW / 2),
       y: boxY - boxH,
@@ -343,24 +290,27 @@ function renderAvionicsOverlay() {
     };
   }
 
-  if (bbox) {
+  if (bbox && telemetryState.targetDistanceM < 110) {
     const bx = bbox.x * scaleX;
     const by = bbox.y * scaleY;
     const bw = bbox.width * scaleX;
     const bh = bbox.height * scaleY;
 
-    let targetColor = '#00ff88'; // Nominal
+    // Palette: Calm Scandinavian white -> Nordic amber -> Safety crimson
+    let strokeColor = 'rgba(255, 255, 255, 0.45)';
     if (telemetryState.alertLevel === 'DANGER_COLLISION') {
-      targetColor = '#ff2244';
+      strokeColor = '#ff3b30'; // Apple Human Interface alert red
     } else if (telemetryState.alertLevel === 'CAUTION') {
-      targetColor = '#ffaa00';
+      strokeColor = '#f5a623'; // Warm automotive amber
     }
 
-    // 3D Corner Bracket Reticle
-    const corner = Math.min(14, Math.floor(bw * 0.3));
-    arCtx.strokeStyle = targetColor;
-    arCtx.lineWidth = 2.5;
+    const corner = Math.min(10, Math.floor(bw * 0.25));
 
+    arCtx.save();
+    arCtx.strokeStyle = strokeColor;
+    arCtx.lineWidth = 1.5;
+
+    // Minimal Corner Brackets
     // Top-Left
     arCtx.beginPath();
     arCtx.moveTo(bx, by + corner);
@@ -380,18 +330,13 @@ function renderAvionicsOverlay() {
     arCtx.lineTo(bx + bw, by + bh - corner);
     arCtx.stroke();
 
-    // Lead Vehicle Telemetry Tag above Reticle
-    arCtx.fillStyle = 'rgba(5, 5, 10, 0.85)';
-    arCtx.fillRect(bx, Math.max(0, by - 26), Math.max(120, bw), 22);
+    // Clean, discreet distance badge above reticle
+    const badgeText = `${telemetryState.targetDistanceM}m`;
+    arCtx.font = '500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+    arCtx.fillStyle = strokeColor;
+    arCtx.fillText(badgeText, bx + (bw / 2) - (arCtx.measureText(badgeText).width / 2), Math.max(16, by - 6));
 
-    arCtx.fillStyle = targetColor;
-    arCtx.font = 'bold 12px monospace';
-    arCtx.fillText(`${telemetryState.targetDistanceM}m`, bx + 6, Math.max(14, by - 10));
-
-    if (telemetryState.timeToCollisionSec < 99 && telemetryState.speedMph > 2) {
-      arCtx.fillStyle = '#ff5252';
-      arCtx.fillText(`TTC ${telemetryState.timeToCollisionSec}s`, bx + 52, Math.max(14, by - 10));
-    }
+    arCtx.restore();
   }
 }
 
