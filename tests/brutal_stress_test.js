@@ -76,8 +76,8 @@ assert(fogVision.visibilityRangeM < 50, `Optical sightline heavily restricted ($
 
 // Test safety brain at 60 mph in 35m fog
 const overdrivingState = {
-  speedMps: 26.82, // 60 mph, requires ~90m to stop in fog!
-  targetDistanceM: 100,
+  speedMps: 26.82, // 60 mph, requires ~113m to stop in fog!
+  targetDistanceM: 130, // Lead vehicle is beyond stopping distance
   targetClosingSpeedMph: 0,
   visibilityRangeM: fogVision.visibilityRangeM,
   assumedFrictionMu: fogVision.assumedFrictionMu,

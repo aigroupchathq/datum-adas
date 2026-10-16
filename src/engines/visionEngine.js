@@ -204,6 +204,43 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
     }
   }
 
+  // Mode B: Nighttime / Wet-Road Bilateral Taillight Clustering
+  // If daytime shadow didn't identify a vehicle or in low-light, search for paired red lamps
+  if (bestObstacleRow === -1 || bestConfidence < 50) {
+    for (let y = scanStartY; y <= scanEndY; y++) {
+      const rowOffset = y * width;
+      const redXPositions = [];
+
+      for (let x = roadMinX; x < roadMaxX; x++) {
+        if (redChromaticMap[rowOffset + x] > 0) {
+          redXPositions.push(x);
+        }
+      }
+
+      if (redXPositions.length >= 2) {
+        const minX = redXPositions[0];
+        const maxX = redXPositions[redXPositions.length - 1];
+        const pairSpan = maxX - minX;
+
+        // Realistic vehicle taillight separation: 8px to 50px
+        if (pairSpan >= 8 && pairSpan <= 50) {
+          const centerX = Math.round((minX + maxX) / 2);
+          // Taillights sit slightly above ground contact; project ground row
+          const groundY = Math.min(height - 1, y + Math.max(2, Math.round(pairSpan * 0.2)));
+          const confidence = Math.min(95, 65 + Math.round(pairSpan * 0.6));
+
+          if (confidence > bestConfidence) {
+            bestConfidence = confidence;
+            bestObstacleRow = groundY;
+            bestObstacleX = centerX;
+            bestObstacleW = Math.max(12, pairSpan);
+            brakeLightsDetected = true;
+          }
+        }
+      }
+    }
+  }
+
   // -------------------------------------------------------------
   // 4. Ground-Plane Inverse Perspective Mapping (IPM) Distance
   // Distance (m) = (H_cam * fy) / (y_pixel - y_horizon)
@@ -264,6 +301,7 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
     targetClosingSpeedMph,
     targetBrakeLightsDetected: brakeLightsDetected,
     targetConfidencePct: bestConfidence,
+    confidenceScore: bestConfidence / 100,
     obstacleBbox,
     sensorConfidence
   };
