@@ -16,6 +16,8 @@ let prevTarget = {
   ts: 0
 };
 
+let calibrationFrameCount = 0;
+
 /**
  * Evaluates a 160x120 RGBA frame buffer to extract road atmospheric and obstacle telemetry.
  *
@@ -246,6 +248,8 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
   // Distance (m) = (H_cam * fy) / (y_pixel - y_horizon)
   // -------------------------------------------------------------
   let targetDistanceM = 120;
+  let opticalUncertaintyM = 0;
+  let conservativeDistanceM = 120;
   let targetClosingSpeedMph = 0;
   let obstacleBbox = null;
 
@@ -261,6 +265,12 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
       width: bestObstacleW,
       height: boxH
     };
+
+    // Physical Optical Uncertainty Bound: σ_d = 0.75 * (d² / (H_cam * f_y))
+    const sigmaD = (0.75 * (rawDistance * rawDistance)) / (cameraHeightM * FOCAL_LENGTH_Y_PX);
+    opticalUncertaintyM = Math.round(sigmaD * 10) / 10;
+    // 95% worst-case conservative lower bound
+    conservativeDistanceM = Math.max(1, Math.round(targetDistanceM - opticalUncertaintyM));
 
     // -----------------------------------------------------------
     // 5. Optical Looming & Closing Velocity Derivative: Δv = -Δd / Δt
@@ -284,12 +294,19 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
   }
 
   // -------------------------------------------------------------
-  // 6. Sensor Confidence
+  // 6. Sensor Confidence & Dynamic Calibration Convergence
   // -------------------------------------------------------------
   let sensorConfidence = 'NOMINAL';
   if (contrastRange < 25 || avgLuma < 12 || avgLuma > 248) {
     sensorConfidence = 'DEGRADED';
   }
+
+  if (contrastRange > 30 && avgLuma > 20 && avgLuma < 235) {
+    calibrationFrameCount++;
+  } else {
+    calibrationFrameCount = Math.max(0, calibrationFrameCount - 1);
+  }
+  const calibrationState = calibrationFrameCount >= 10 ? 'CALIBRATED' : 'CALIBRATING';
 
   return {
     visibilityPct,
@@ -298,11 +315,14 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
     assumedFrictionMu,
     surfaceType,
     targetDistanceM,
+    conservativeDistanceM,
+    opticalUncertaintyM,
     targetClosingSpeedMph,
     targetBrakeLightsDetected: brakeLightsDetected,
     targetConfidencePct: bestConfidence,
     confidenceScore: bestConfidence / 100,
     obstacleBbox,
-    sensorConfidence
+    sensorConfidence,
+    calibrationState
   };
 }

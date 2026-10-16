@@ -30,7 +30,10 @@ export function evaluateSafety(state) {
   const reactionDistanceM = Math.round(speedMps * HUMAN_REACTION_TIME_SEC);
   const brakingDistanceM = Math.round((speedMps * speedMps) / (2 * frictionMu * GRAVITY_MPS2));
   const stoppingDistanceM = reactionDistanceM + brakingDistanceM;
-  const safetyMarginM = Math.round(targetDistanceM - stoppingDistanceM);
+  const effectiveDistanceM = (state.conservativeDistanceM && state.conservativeDistanceM > 0)
+    ? state.conservativeDistanceM
+    : targetDistanceM;
+  const safetyMarginM = Math.round(effectiveDistanceM - stoppingDistanceM);
 
   // -------------------------------------------------------------
   // 2. Optical Looming & Relative Closing Speed Time-To-Collision (TTC)
@@ -40,10 +43,10 @@ export function evaluateSafety(state) {
 
   if (closingSpeedMph > 1.0) {
     // Relative closing speed to lead vehicle
-    timeToCollisionSec = Math.round((targetDistanceM / closingSpeedMps) * 10) / 10;
+    timeToCollisionSec = Math.round((effectiveDistanceM / closingSpeedMps) * 10) / 10;
   } else if (speedMps > 1.5 && targetDistanceM < 120) {
     // Lead vehicle is stationary or stopped (e.g. at traffic light / barrier)
-    timeToCollisionSec = Math.round((targetDistanceM / speedMps) * 10) / 10;
+    timeToCollisionSec = Math.round((effectiveDistanceM / speedMps) * 10) / 10;
   }
 
   // -------------------------------------------------------------
@@ -54,10 +57,10 @@ export function evaluateSafety(state) {
   const isCriticalTtc = timeToCollisionSec <= 2.4 && (closingSpeedMph > 1.0 || speedMps > 1.5);
 
   // 2) Stationary/stopped lead car inside full stopping envelope (CCRs)
-  const isStationaryHazard = closingSpeedMph <= 1.0 && speedMps > 4.5 && targetDistanceM <= stoppingDistanceM;
+  const isStationaryHazard = closingSpeedMph <= 1.0 && speedMps > 4.5 && effectiveDistanceM <= stoppingDistanceM;
 
   // 3) High closing speed (Delta-v > 15 mph) inside physical stopping distance (CCRm/CCRb)
-  const isHighClosingSpeedHazard = closingSpeedMph > 15 && targetDistanceM <= stoppingDistanceM;
+  const isHighClosingSpeedHazard = closingSpeedMph > 15 && effectiveDistanceM <= stoppingDistanceM;
 
   const isCollisionThreat = isCriticalTtc || isStationaryHazard || isHighClosingSpeedHazard;
 

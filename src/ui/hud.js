@@ -76,12 +76,13 @@ function renderState() {
     speedValEl.textContent = telemetryState.speedMph;
   }
 
-  // 2. Kinematic Metrics (Calm, tabular readouts)
+  // 2. Kinematic Metrics (Calm, tabular readouts with error bounds)
   if (targetDistValEl) {
     if (telemetryState.targetDistanceM >= 120) {
       targetDistValEl.textContent = 'CLEAR';
     } else {
-      targetDistValEl.textContent = `${telemetryState.targetDistanceM}m`;
+      const err = telemetryState.opticalUncertaintyM > 0.3 ? ` ±${telemetryState.opticalUncertaintyM}m` : '';
+      targetDistValEl.textContent = `${telemetryState.targetDistanceM}m${err}`;
     }
   }
 
@@ -134,7 +135,7 @@ function renderState() {
     frictionValEl.textContent = `μ ${telemetryState.assumedFrictionMu.toFixed(2)}`;
   }
 
-  // 6. Discrete Status Indicators (Muted, quiet dots)
+  // 6. Discrete Status Indicators (Truthful Calibration & Sensor Sync)
   if (gpsStatusEl) {
     if (telemetryState.gpsStatus === 'ACTIVE') {
       gpsStatusEl.textContent = '● GNSS';
@@ -159,8 +160,13 @@ function renderState() {
 
   if (cameraStatusEl) {
     if (telemetryState.cameraStatus === 'ACTIVE') {
-      cameraStatusEl.textContent = '● OPTICAL';
-      cameraStatusEl.className = 'pill-chip pill-safe';
+      if (telemetryState.calibrationState === 'CALIBRATED') {
+        cameraStatusEl.textContent = '● OPTICS: CALIBRATED';
+        cameraStatusEl.className = 'pill-chip pill-safe';
+      } else {
+        cameraStatusEl.textContent = '○ OPTICS: CALIBRATING';
+        cameraStatusEl.className = 'pill-chip pill-warn';
+      }
     } else if (telemetryState.cameraStatus === 'DENIED' || telemetryState.cameraStatus === 'ERROR') {
       cameraStatusEl.textContent = '○ CAM BLOCKED';
       cameraStatusEl.className = 'pill-chip pill-warn';
@@ -330,8 +336,9 @@ function renderMinimalOptics() {
     arCtx.lineTo(bx + bw, by + bh - corner);
     arCtx.stroke();
 
-    // Clean, discreet distance badge above reticle
-    const badgeText = `${telemetryState.targetDistanceM}m`;
+    // Clean, discreet distance badge with physical uncertainty bound above reticle
+    const errText = telemetryState.opticalUncertaintyM > 0.3 ? ` ±${telemetryState.opticalUncertaintyM}m` : '';
+    const badgeText = `${telemetryState.targetDistanceM}m${errText}`;
     arCtx.font = '500 11px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
     arCtx.fillStyle = strokeColor;
     arCtx.fillText(badgeText, bx + (bw / 2) - (arCtx.measureText(badgeText).width / 2), Math.max(16, by - 6));

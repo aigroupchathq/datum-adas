@@ -16,6 +16,13 @@ export const telemetryState = {
   imuCalibrated: false,        // True once ground plane baseline is established
   imuConfidence: 'NOMINAL',    // 'NOMINAL' | 'HIGH_VIBRATION' | 'UNAVAILABLE'
 
+  // Ground Truth & Calibration Layer (Datum Atelier Standard)
+  calibrationState: 'CALIBRATING', // 'CALIBRATING' | 'CALIBRATED' | 'UNCALIBRATED'
+  calibrationFrames: 0,            // Convergence counter for vanishing point verification
+  opticalUncertaintyM: 0,          // Calculated 1-sigma distance error bound (± meters)
+  conservativeDistanceM: 120,      // 95% worst-case conservative lower bound distance
+  sensorIncongruence: false,       // True if GNSS speed and optical flow speed diverge
+
   // Hardware Sensor Diagnostics
   sensorConfidence: 'NOMINAL', // 'NOMINAL' | 'DEGRADED' | 'CRITICAL_FAILURE'
   cameraStatus: 'CONNECTING',  // 'CONNECTING' | 'ACTIVE' | 'DENIED' | 'SIMULATED'
