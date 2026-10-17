@@ -142,6 +142,7 @@ console.log('\n--- Test Suite 3: Zero-Record & Offline Guardrail Audit ---');
 const srcFiles = [
   '../src/state.js',
   '../src/engines/visionEngine.js',
+  '../src/engines/laneEngine.js',
   '../src/engines/safetyBrain.js',
   '../src/sensors/camera.js',
   '../src/sensors/gps.js',

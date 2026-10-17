@@ -60,5 +60,16 @@ export const telemetryState = {
   timeToCollisionSec: 99,      // Optical looming τ = θ / θ'
   consecutiveHazardFrames: 0,  // Debounce counter (3 frames = 300ms confirmation)
   alertLevel: 'SAFE',          // 'SAFE' | 'CAUTION' | 'DANGER_COLLISION' | 'DANGER_OVERDRIVING_VIS'
-  lastAudioAlertTs: 0          // 2500ms audio lockout timestamp
+  lastAudioAlertTs: 0,         // 2500ms audio lockout timestamp
+
+  // Lateral Lane Departure Warning (ISO 17361 Standard)
+  ldwState: 'STANDBY',         // 'STANDBY' | 'SAFE' | 'DEPARTURE_LEFT' | 'DEPARTURE_RIGHT' | 'SUPPRESSED' | 'UNAVAILABLE'
+  lateralOffsetM: 0,           // Vehicle center offset from lane center (- = left, + = right)
+  distanceToLineCrossingLeftM: 0.88,  // Distance from left tire to left boundary (meters)
+  distanceToLineCrossingRightM: 0.88, // Distance from right tire to right boundary (meters)
+  timeToLineCrossingSec: 99,   // Predicted time to line crossing (TLC)
+  laneConfidencePct: 0,        // Lane detection quality score (0-100%)
+  departureDirection: null,    // 'LEFT' | 'RIGHT' | null
+  rumbleSide: null,            // 'LEFT' | 'RIGHT' | null
+  isLdwActive: false
 };

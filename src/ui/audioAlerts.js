@@ -39,7 +39,7 @@ export function isMuted() {
 /**
  * Evaluates alert level and triggers synthesized acoustic warning if cooldown expired
  */
-export function evaluateAudioAlert(alertLevel) {
+export function evaluateAudioAlert(alertLevel, ldwState, rumbleSide) {
   if (isAudioMuted || !audioCtx) return;
 
   const now = Date.now();
@@ -52,6 +52,9 @@ export function evaluateAudioAlert(alertLevel) {
     telemetryState.lastAudioAlertTs = now;
   } else if (alertLevel === 'DANGER_OVERDRIVING_VIS') {
     playOverdrivingChime();
+    telemetryState.lastAudioAlertTs = now;
+  } else if (ldwState === 'DEPARTURE_LEFT' || ldwState === 'DEPARTURE_RIGHT') {
+    playRumbleStrip(rumbleSide || (ldwState === 'DEPARTURE_LEFT' ? 'LEFT' : 'RIGHT'));
     telemetryState.lastAudioAlertTs = now;
   }
 }
@@ -111,4 +114,55 @@ function playOverdrivingChime() {
 
   osc.start(startTime);
   osc.stop(startTime + 0.35);
+}
+
+/**
+ * Synthesizes low-frequency lateral rumble strip vibration pulse (75 Hz with 15 Hz modulation)
+ * panned towards departure side (LEFT: -0.85, RIGHT: +0.85)
+ */
+export function playRumbleStrip(side = 'LEFT') {
+  if (isAudioMuted || !audioCtx) return;
+
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
+
+  const startTime = audioCtx.currentTime;
+  const panVal = side === 'LEFT' ? -0.85 : 0.85;
+
+  const osc = audioCtx.createOscillator();
+  const modOsc = audioCtx.createOscillator();
+  const modGain = audioCtx.createGain();
+  const masterGain = audioCtx.createGain();
+
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(75, startTime); // 75 Hz tactile rumble fundamental
+
+  // Amplitude modulator: 15 Hz rumble tire tread pulse
+  modOsc.type = 'square';
+  modOsc.frequency.setValueAtTime(15, startTime);
+  modGain.gain.setValueAtTime(0.5, startTime);
+
+  masterGain.gain.setValueAtTime(0.45, startTime);
+  masterGain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.35);
+
+  modOsc.connect(modGain);
+  modGain.connect(masterGain.gain);
+
+  osc.connect(masterGain);
+
+  // Directional panning: StereoPannerNode with graceful fallback
+  if (audioCtx.createStereoPanner) {
+    const panner = audioCtx.createStereoPanner();
+    panner.pan.setValueAtTime(panVal, startTime);
+    masterGain.connect(panner);
+    panner.connect(audioCtx.destination);
+  } else {
+    masterGain.connect(audioCtx.destination);
+  }
+
+  osc.start(startTime);
+  modOsc.start(startTime);
+  osc.stop(startTime + 0.35);
+  modOsc.stop(startTime + 0.35);
 }

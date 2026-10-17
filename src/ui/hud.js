@@ -77,7 +77,7 @@ function renderLoop() {
 
   renderState();
   renderRoadOptics();
-  evaluateAudioAlert(telemetryState.alertLevel);
+  evaluateAudioAlert(telemetryState.alertLevel, telemetryState.ldwState, telemetryState.rumbleSide);
 
   requestAnimationFrame(renderLoop);
 }
