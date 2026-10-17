@@ -245,7 +245,15 @@ function renderState() {
         alertMessageEl.textContent = `CLOSING SENSITIVITY ACTIVE`;
         break;
       default:
-        alertMessageEl.textContent = ``;
+        if (telemetryState.ldwState === 'DEPARTURE_LEFT') {
+          alertBannerEl.className = 'alert-ribbon level-caution';
+          alertMessageEl.textContent = `◄ LANE DRIFT LEFT`;
+        } else if (telemetryState.ldwState === 'DEPARTURE_RIGHT') {
+          alertBannerEl.className = 'alert-ribbon level-caution';
+          alertMessageEl.textContent = `LANE DRIFT RIGHT ►`;
+        } else {
+          alertMessageEl.textContent = ``;
+        }
         break;
     }
   }
@@ -391,26 +399,46 @@ function renderRoadOptics() {
     const xR2 = (w / 2) + (laneRightM * F_OPT) / clampedZ2;
 
     // Golden / Yellow luxury palette with active hazard escalation
-    let strokeGold = `rgba(255, 209, 89, ${0.92 * fade})`;
-    let coreGold = `rgba(255, 242, 185, ${0.70 * fade})`;
-    let shadowGold = 'rgba(255, 193, 7, 0.45)';
+    let strokeGoldL = `rgba(255, 209, 89, ${0.92 * fade})`;
+    let coreGoldL = `rgba(255, 242, 185, ${0.70 * fade})`;
+    let shadowGoldL = 'rgba(255, 193, 7, 0.45)';
+
+    let strokeGoldR = `rgba(255, 209, 89, ${0.92 * fade})`;
+    let coreGoldR = `rgba(255, 242, 185, ${0.70 * fade})`;
+    let shadowGoldR = 'rgba(255, 193, 7, 0.45)';
+
+    const isLdwLeft = telemetryState.ldwState === 'DEPARTURE_LEFT';
+    const isLdwRight = telemetryState.ldwState === 'DEPARTURE_RIGHT';
 
     if (isDanger) {
-      strokeGold = `rgba(255, 59, 48, ${0.95 * fade})`;
-      coreGold = `rgba(255, 180, 175, ${0.70 * fade})`;
-      shadowGold = 'rgba(255, 59, 48, 0.85)';
+      strokeGoldL = strokeGoldR = `rgba(255, 59, 48, ${0.95 * fade})`;
+      coreGoldL = coreGoldR = `rgba(255, 180, 175, ${0.70 * fade})`;
+      shadowGoldL = shadowGoldR = 'rgba(255, 59, 48, 0.85)';
     } else if (isCaution) {
-      strokeGold = `rgba(255, 149, 0, ${0.95 * fade})`;
-      coreGold = `rgba(255, 215, 140, ${0.70 * fade})`;
-      shadowGold = 'rgba(255, 149, 0, 0.65)';
+      strokeGoldL = strokeGoldR = `rgba(255, 149, 0, ${0.95 * fade})`;
+      coreGoldL = coreGoldR = `rgba(255, 215, 140, ${0.70 * fade})`;
+      shadowGoldL = shadowGoldR = 'rgba(255, 149, 0, 0.65)';
+    } else {
+      if (isLdwLeft) {
+        strokeGoldL = `rgba(255, 149, 0, ${0.98 * fade})`;
+        coreGoldL = `rgba(255, 220, 140, ${0.85 * fade})`;
+        shadowGoldL = 'rgba(255, 149, 0, 0.85)';
+      }
+      if (isLdwRight) {
+        strokeGoldR = `rgba(255, 149, 0, ${0.98 * fade})`;
+        coreGoldR = `rgba(255, 220, 140, ${0.85 * fade})`;
+        shadowGoldR = 'rgba(255, 149, 0, 0.85)';
+      }
     }
 
-    arCtx.save();
-    arCtx.shadowColor = shadowGold;
-    arCtx.shadowBlur = isDanger ? 12 : (isCaution ? 8 : 5);
-    arCtx.fillStyle = strokeGold;
+    const wCore1 = wStripe1 * 0.45;
+    const wCore2 = wStripe2 * 0.45;
 
     // Left Lane Dash Trapezoid
+    arCtx.save();
+    arCtx.shadowColor = shadowGoldL;
+    arCtx.shadowBlur = (isDanger || isLdwLeft) ? 12 : (isCaution ? 8 : 5);
+    arCtx.fillStyle = strokeGoldL;
     arCtx.beginPath();
     arCtx.moveTo(xL1 - wStripe1 / 2, y1);
     arCtx.lineTo(xL1 + wStripe1 / 2, y1);
@@ -419,7 +447,22 @@ function renderRoadOptics() {
     arCtx.closePath();
     arCtx.fill();
 
+    // High-luminance inner core beam Left
+    arCtx.fillStyle = coreGoldL;
+    arCtx.beginPath();
+    arCtx.moveTo(xL1 - wCore1 / 2, y1);
+    arCtx.lineTo(xL1 + wCore1 / 2, y1);
+    arCtx.lineTo(xL2 + wCore2 / 2, y2);
+    arCtx.lineTo(xL2 - wCore2 / 2, y2);
+    arCtx.closePath();
+    arCtx.fill();
+    arCtx.restore();
+
     // Right Lane Dash Trapezoid
+    arCtx.save();
+    arCtx.shadowColor = shadowGoldR;
+    arCtx.shadowBlur = (isDanger || isLdwRight) ? 12 : (isCaution ? 8 : 5);
+    arCtx.fillStyle = strokeGoldR;
     arCtx.beginPath();
     arCtx.moveTo(xR1 - wStripe1 / 2, y1);
     arCtx.lineTo(xR1 + wStripe1 / 2, y1);
@@ -428,19 +471,8 @@ function renderRoadOptics() {
     arCtx.closePath();
     arCtx.fill();
 
-    // High-luminance inner core beam
-    arCtx.fillStyle = coreGold;
-    const wCore1 = wStripe1 * 0.45;
-    const wCore2 = wStripe2 * 0.45;
-
-    arCtx.beginPath();
-    arCtx.moveTo(xL1 - wCore1 / 2, y1);
-    arCtx.lineTo(xL1 + wCore1 / 2, y1);
-    arCtx.lineTo(xL2 + wCore2 / 2, y2);
-    arCtx.lineTo(xL2 - wCore2 / 2, y2);
-    arCtx.closePath();
-    arCtx.fill();
-
+    // High-luminance inner core beam Right
+    arCtx.fillStyle = coreGoldR;
     arCtx.beginPath();
     arCtx.moveTo(xR1 - wCore1 / 2, y1);
     arCtx.lineTo(xR1 + wCore1 / 2, y1);
@@ -448,7 +480,6 @@ function renderRoadOptics() {
     arCtx.lineTo(xR2 - wCore2 / 2, y2);
     arCtx.closePath();
     arCtx.fill();
-
     arCtx.restore();
   }
 

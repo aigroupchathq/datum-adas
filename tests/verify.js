@@ -150,6 +150,7 @@ const srcFiles = [
   '../src/ui/hud.js',
   '../src/ui/audioAlerts.js',
   '../src/ui/simControls.js',
+  '../src/workers/visionWorker.js',
   '../src/main.js'
 ];
 

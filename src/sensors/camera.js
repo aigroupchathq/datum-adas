@@ -6,6 +6,7 @@
 
 import { telemetryState } from '../state.js';
 import { analyzeFrame, resetVisionState } from '../engines/visionEngine.js';
+import { analyzeLaneFrame, resetLaneEngine } from '../engines/laneEngine.js';
 import { evaluateSafety } from '../engines/safetyBrain.js';
 
 let videoElement = null;
@@ -18,12 +19,40 @@ const FRAME_WIDTH = 160;
 const FRAME_HEIGHT = 120;
 const TICK_RATE_MS = 100; // 10 Hz automotive rate
 
+let visionWorker = null;
+let isWorkerBusy = false;
+
+function initVisionWorker() {
+  if (typeof Worker !== 'undefined' && !visionWorker) {
+    try {
+      visionWorker = new Worker(new URL('../workers/visionWorker.js', import.meta.url), { type: 'module' });
+      visionWorker.onmessage = (e) => {
+        isWorkerBusy = false;
+        const msg = e.data;
+        if (msg && msg.type === 'FRAME_RESULTS') {
+          if (msg.visionOutputs) Object.assign(telemetryState, msg.visionOutputs);
+          if (msg.laneOutputs) Object.assign(telemetryState, msg.laneOutputs);
+          if (msg.safetyOutputs) Object.assign(telemetryState, msg.safetyOutputs);
+          telemetryState.sensorIncongruence = Boolean(msg.sensorIncongruence);
+        }
+      };
+      visionWorker.onerror = () => {
+        visionWorker = null;
+      };
+    } catch {
+      visionWorker = null;
+    }
+  }
+}
+
 /**
  * Initializes mobile camera stream and in-memory sampling canvas
  */
 export async function initCamera() {
   if (isInitializing) return;
   isInitializing = true;
+
+  initVisionWorker();
 
   // 1. Prepare in-memory sampling canvas (160x120)
   if (!offscreenCanvas) {
@@ -149,29 +178,68 @@ function sampleAndAnalyze() {
 
     const imageData = offscreenCtx.getImageData(0, 0, FRAME_WIDTH, FRAME_HEIGHT);
 
-    const visionOutputs = analyzeFrame(imageData.data, FRAME_WIDTH, FRAME_HEIGHT, {
-      cameraHeightM: telemetryState.cameraHeightM,
-      horizonY: telemetryState.horizonY
-    });
+    if (visionWorker && !isWorkerBusy) {
+      isWorkerBusy = true;
+      const bufferCopy = imageData.data.buffer.slice(0);
+      visionWorker.postMessage({
+        type: 'PROCESS_FRAME',
+        buffer: bufferCopy,
+        width: FRAME_WIDTH,
+        height: FRAME_HEIGHT,
+        options: {
+          cameraHeightM: telemetryState.cameraHeightM,
+          horizonY: telemetryState.horizonY,
+          yawRateDps: 0,
+          timestamp: Date.now()
+        },
+        telemetry: {
+          speedMph: telemetryState.speedMph,
+          speedMps: telemetryState.speedMps,
+          targetDistanceM: telemetryState.targetDistanceM,
+          conservativeDistanceM: telemetryState.conservativeDistanceM,
+          visibilityRangeM: telemetryState.visibilityRangeM,
+          assumedFrictionMu: telemetryState.assumedFrictionMu,
+          targetClosingSpeedMph: telemetryState.targetClosingSpeedMph,
+          targetBrakeLightsDetected: telemetryState.targetBrakeLightsDetected,
+          consecutiveHazardFrames: telemetryState.consecutiveHazardFrames
+        }
+      }, [bufferCopy]);
+    } else if (!visionWorker) {
+      // In-thread synchronous fallback
+      const visionOutputs = analyzeFrame(imageData.data, FRAME_WIDTH, FRAME_HEIGHT, {
+        cameraHeightM: telemetryState.cameraHeightM,
+        horizonY: telemetryState.horizonY
+      });
+      const laneOutputs = analyzeLaneFrame(imageData.data, FRAME_WIDTH, FRAME_HEIGHT, {
+        speedMph: telemetryState.speedMph,
+        yawRateDps: 0,
+        horizonY: telemetryState.horizonY
+      });
 
-    Object.assign(telemetryState, visionOutputs);
+      Object.assign(telemetryState, visionOutputs, laneOutputs);
 
-    // Cross-sensor validation (Sensor Incongruence Flag)
-    // If GNSS indicates highway travel (> 15 mph / 6.7 m/s) but camera sensor is degraded or obstructed
-    const isMovingAtRoadSpeed = telemetryState.speedMps > 6.7;
-    const isOpticalDegraded = visionOutputs.sensorConfidence === 'DEGRADED' || visionOutputs.visibilityPct < 15;
-    telemetryState.sensorIncongruence = isMovingAtRoadSpeed && isOpticalDegraded;
+      // Cross-sensor validation (Sensor Incongruence Flag)
+      const isMovingAtRoadSpeed = telemetryState.speedMps > 6.7;
+      const isOpticalDegraded = visionOutputs.sensorConfidence === 'DEGRADED' || visionOutputs.visibilityPct < 15;
+      telemetryState.sensorIncongruence = isMovingAtRoadSpeed && isOpticalDegraded;
+
+      const safetyOutputs = evaluateSafety(telemetryState);
+      Object.assign(telemetryState, safetyOutputs);
+    }
+  } else {
+    const safetyOutputs = evaluateSafety(telemetryState);
+    Object.assign(telemetryState, safetyOutputs);
   }
-
-  // Safety Brain evaluation
-  const safetyOutputs = evaluateSafety(telemetryState);
-  Object.assign(telemetryState, safetyOutputs);
 }
 
 export function stopCamera() {
   if (loopIntervalId) {
     clearInterval(loopIntervalId);
     loopIntervalId = null;
+  }
+
+  if (visionWorker) {
+    visionWorker.postMessage({ type: 'RESET' });
   }
 
   if (videoElement && videoElement.srcObject) {
@@ -181,6 +249,7 @@ export function stopCamera() {
   }
 
   resetVisionState();
+  resetLaneEngine();
 
   telemetryState.isRunning = false;
   telemetryState.cameraStatus = 'OFFLINE';

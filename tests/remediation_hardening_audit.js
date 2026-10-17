@@ -163,8 +163,8 @@ assert(!indexHtml.includes('caches.delete'), `index.html contains zero caches.de
 assert(!notFoundHtml.includes('unregister()'), `404.html contains zero serviceWorker.unregister() calls`);
 assert(!notFoundHtml.includes('caches.delete'), `404.html contains zero caches.delete calls`);
 
-// Verify sw.js cache name is updated to v8
-assert(swJs.includes('datum-adas-offline-v8'), `sw.js active cache target is updated to datum-adas-offline-v8`);
+// Verify sw.js cache name is updated to v9
+assert(swJs.includes('datum-adas-offline-v9'), `sw.js active cache target is updated to datum-adas-offline-v9`);
 
 // Verify all static assets in sw.js exist on filesystem
 const assetMatches = swJs.match(/STATIC_ASSETS\s*=\s*\[([\s\S]*?)\]/);
