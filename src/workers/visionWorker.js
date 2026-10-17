@@ -7,6 +7,8 @@
 import { analyzeFrame, resetVisionState } from '../engines/visionEngine.js';
 import { analyzeLaneFrame, resetLaneEngine } from '../engines/laneEngine.js';
 import { evaluateSafety } from '../engines/safetyBrain.js';
+import { evaluateLvda, resetLvdaEngine } from '../engines/lvdaEngine.js';
+import { evaluateEcoKinematics, resetEcoEngine } from '../engines/ecoEngine.js';
 
 self.onmessage = function(event) {
   const data = event.data;
@@ -31,11 +33,17 @@ self.onmessage = function(event) {
       timestamp: options.timestamp
     });
 
-    // Combine state for safety brain evaluation
+    // Combine state for safety and value-for-money brain evaluation
     const mergedState = Object.assign({}, telemetry, visionOutputs, laneOutputs);
 
     // 3. Forward collision and sightline safety kinematics
     const safetyOutputs = evaluateSafety(mergedState);
+
+    // 4. Lead vehicle departure alert (Stop & Go prompter)
+    const lvdaOutputs = evaluateLvda(mergedState, options.timestamp);
+
+    // 5. Direct financial ROI: Eco-kinematic momentum optimizer
+    const ecoOutputs = evaluateEcoKinematics(mergedState, options.timestamp);
 
     // Cross-sensor validation (Sensor Incongruence Flag)
     const isMovingAtRoadSpeed = (telemetry.speedMps || 0) > 6.7;
@@ -47,10 +55,15 @@ self.onmessage = function(event) {
       visionOutputs,
       laneOutputs,
       safetyOutputs,
+      lvdaOutputs,
+      ecoOutputs,
       sensorIncongruence
     });
   } else if (data.type === 'RESET') {
     resetVisionState();
     resetLaneEngine();
+    resetLvdaEngine();
+    resetEcoEngine();
   }
 };
+

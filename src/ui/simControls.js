@@ -28,6 +28,9 @@ export function initSimControls() {
   const btnBrakeScenario = document.getElementById('btn-scenario-brake');
   const btnFogScenario = document.getElementById('btn-scenario-fog');
   const btnCruiseScenario = document.getElementById('btn-scenario-cruise');
+  const btnLvdaScenario = document.getElementById('btn-scenario-lvda');
+  const btnEcoScenario = document.getElementById('btn-scenario-eco');
+  const hudViewportEl = document.getElementById('hud-viewport');
   // Drawer Toggle buttons
   const drawerToggleBtn = document.getElementById('btn-sim-drawer-toggle');
   const drawerCloseBtn = document.getElementById('btn-sim-close');
@@ -120,15 +123,53 @@ export function initSimControls() {
     });
   }
 
-  // Windshield Mirror Mode
-  if (mirrorToggleBtn) {
-    mirrorToggleBtn.addEventListener('click', () => {
-      telemetryState.isMirroredHUD = !telemetryState.isMirroredHUD;
-      mirrorToggleBtn.classList.toggle('active', telemetryState.isMirroredHUD);
+  // Windshield Reflection HUD Mode (OFF -> DASHBOARD_FLAT -> MIRROR_HORIZONTAL -> OFF)
+  function cycleHudMode() {
+    let nextMode = 'OFF';
+    if (telemetryState.hudProjectionMode === 'OFF') {
+      nextMode = 'DASHBOARD_FLAT';
+    } else if (telemetryState.hudProjectionMode === 'DASHBOARD_FLAT') {
+      nextMode = 'MIRROR_HORIZONTAL';
+    } else {
+      nextMode = 'OFF';
+    }
+    telemetryState.hudProjectionMode = nextMode;
+    telemetryState.isMirroredHUD = nextMode !== 'OFF';
+
+    if (mirrorToggleBtn) {
+      const isActive = nextMode !== 'OFF';
+      mirrorToggleBtn.classList.toggle('active', isActive);
       const led = mirrorToggleBtn.querySelector('.toggle-led');
-      if (led) led.classList.toggle('led-active', telemetryState.isMirroredHUD);
+      if (led) led.classList.toggle('led-active', isActive);
       const text = mirrorToggleBtn.querySelector('.toggle-text');
-      if (text) text.textContent = telemetryState.isMirroredHUD ? 'HUD MIRROR: ON' : 'HUD MIRROR';
+      if (text) {
+        if (nextMode === 'DASHBOARD_FLAT') {
+          text.textContent = 'HUD: FLAT';
+        } else if (nextMode === 'MIRROR_HORIZONTAL') {
+          text.textContent = 'HUD: MIRROR';
+        } else {
+          text.textContent = 'HUD MODE';
+        }
+      }
+    }
+  }
+
+  if (mirrorToggleBtn) {
+    mirrorToggleBtn.addEventListener('click', cycleHudMode);
+  }
+
+  // Double-tap on viewport to toggle HUD projection mode
+  if (hudViewportEl) {
+    let lastTap = 0;
+    hudViewportEl.addEventListener('touchend', (e) => {
+      // Ignore if clicking on button or interactive control
+      if (e.target.closest('button, input, select, aside')) return;
+      const now = Date.now();
+      if (now - lastTap < 300) {
+        cycleHudMode();
+        e.preventDefault();
+      }
+      lastTap = now;
     });
   }
 
@@ -163,6 +204,37 @@ export function initSimControls() {
     btnCruiseScenario.addEventListener('click', () => {
       enableSimMode();
       setSimValues(70, 95, 100, 'CLEAR');
+    });
+  }
+
+  if (btnLvdaScenario) {
+    btnLvdaScenario.addEventListener('click', () => {
+      enableSimMode();
+      // 1. Ego vehicle stationary at red light behind stopped lead car
+      setSimValues(0, 5, 100, 'CLEAR');
+      telemetryState.targetClosingSpeedMph = 0;
+      telemetryState.leadVehicleMoved = false;
+
+      // 2. Lead car accelerates away after 1.6s
+      setTimeout(() => {
+        if (telemetryState.isSimMode) {
+          telemetryState.targetDistanceM = 12;
+          telemetryState.targetClosingSpeedMph = -5; // pulling away
+          if (distSlider) distSlider.value = 12;
+          if (distValText) distValText.textContent = '12 m';
+        }
+      }, 1600);
+    });
+  }
+
+  if (btnEcoScenario) {
+    btnEcoScenario.addEventListener('click', () => {
+      enableSimMode();
+      setSimValues(55, 75, 100, 'CLEAR');
+      telemetryState.ecoScore = 96;
+      telemetryState.estimatedMpgGainPct = 14;
+      telemetryState.smoothBrakingPct = 100;
+      telemetryState.coastingRecommendation = false;
     });
   }
 

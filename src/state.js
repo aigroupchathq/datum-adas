@@ -71,5 +71,21 @@ export const telemetryState = {
   laneConfidencePct: 0,        // Lane detection quality score (0-100%)
   departureDirection: null,    // 'LEFT' | 'RIGHT' | null
   rumbleSide: null,            // 'LEFT' | 'RIGHT' | null
-  isLdwActive: false
+  isLdwActive: false,
+
+  // True Windshield Reflection HUD Mode
+  hudProjectionMode: 'OFF',    // 'OFF' | 'DASHBOARD_FLAT' | 'MIRROR_HORIZONTAL'
+
+  // Lead Vehicle Departure Alert (LVDA / Stop & Go Prompter)
+  lvdaState: 'INACTIVE',       // 'INACTIVE' | 'CLEAR_ROAD' | 'WAITING_BASELINE' | 'TRACKING_LEAD' | 'LEAD_CAR_DEPARTING' | 'ALERTED'
+  leadVehicleMoved: false,     // True when lead vehicle pulls away from stationary queue
+  stoppedDurationSec: 0,       // Duration ego vehicle has been stationary (seconds)
+  departureDistanceM: 0,       // Distance lead car has moved away from queue (meters)
+
+  // Direct Financial ROI: Eco-Kinematic Momentum Optimizer
+  ecoScore: 100,               // 0 - 100% Kinetic momentum efficiency score
+  ecoTier: 'OPTIMAL',          // 'OPTIMAL' | 'EFFICIENT' | 'MODERATE' | 'AGGRESSIVE'
+  smoothBrakingPct: 100,       // Percentage of decelerations within regenerative/coasting envelope
+  estimatedMpgGainPct: 0,      // Projected fuel / EV battery range improvement (0 - 15%)
+  coastingRecommendation: false // True when approaching stopped queue with throttle applied
 };

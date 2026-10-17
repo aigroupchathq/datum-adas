@@ -8,6 +8,8 @@ import { telemetryState } from '../state.js';
 import { analyzeFrame, resetVisionState } from '../engines/visionEngine.js';
 import { analyzeLaneFrame, resetLaneEngine } from '../engines/laneEngine.js';
 import { evaluateSafety } from '../engines/safetyBrain.js';
+import { evaluateLvda, resetLvdaEngine } from '../engines/lvdaEngine.js';
+import { evaluateEcoKinematics, resetEcoEngine } from '../engines/ecoEngine.js';
 
 let videoElement = null;
 let offscreenCanvas = null;
@@ -33,6 +35,8 @@ function initVisionWorker() {
           if (msg.visionOutputs) Object.assign(telemetryState, msg.visionOutputs);
           if (msg.laneOutputs) Object.assign(telemetryState, msg.laneOutputs);
           if (msg.safetyOutputs) Object.assign(telemetryState, msg.safetyOutputs);
+          if (msg.lvdaOutputs) Object.assign(telemetryState, msg.lvdaOutputs);
+          if (msg.ecoOutputs) Object.assign(telemetryState, msg.ecoOutputs);
           telemetryState.sensorIncongruence = Boolean(msg.sensorIncongruence);
         }
       };
@@ -215,8 +219,10 @@ function sampleAndAnalyze() {
         yawRateDps: 0,
         horizonY: telemetryState.horizonY
       });
+      const lvdaOutputs = evaluateLvda(telemetryState);
+      const ecoOutputs = evaluateEcoKinematics(telemetryState);
 
-      Object.assign(telemetryState, visionOutputs, laneOutputs);
+      Object.assign(telemetryState, visionOutputs, laneOutputs, lvdaOutputs, ecoOutputs);
 
       // Cross-sensor validation (Sensor Incongruence Flag)
       const isMovingAtRoadSpeed = telemetryState.speedMps > 6.7;
@@ -228,7 +234,9 @@ function sampleAndAnalyze() {
     }
   } else {
     const safetyOutputs = evaluateSafety(telemetryState);
-    Object.assign(telemetryState, safetyOutputs);
+    const lvdaOutputs = evaluateLvda(telemetryState);
+    const ecoOutputs = evaluateEcoKinematics(telemetryState);
+    Object.assign(telemetryState, safetyOutputs, lvdaOutputs, ecoOutputs);
   }
 }
 
@@ -250,6 +258,8 @@ export function stopCamera() {
 
   resetVisionState();
   resetLaneEngine();
+  resetLvdaEngine();
+  resetEcoEngine();
 
   telemetryState.isRunning = false;
   telemetryState.cameraStatus = 'OFFLINE';

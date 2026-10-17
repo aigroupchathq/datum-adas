@@ -36,26 +36,46 @@ export function isMuted() {
   return isAudioMuted;
 }
 
+let lastLvdaAlertTs = 0;
+
 /**
  * Evaluates alert level and triggers synthesized acoustic warning if cooldown expired
  */
-export function evaluateAudioAlert(alertLevel, ldwState, rumbleSide) {
+export function evaluateAudioAlert(alertLevel, ldwState, rumbleSide, leadVehicleMoved = false) {
   if (isAudioMuted || !audioCtx) return;
 
   const now = Date.now();
-  if (now - telemetryState.lastAudioAlertTs < AUDIO_COOLDOWN_MS) {
-    return; // Within 2500ms cooldown window
+
+  // Priority 1: Imminent Collision Hazard (Emergency Lockout)
+  if (alertLevel === 'DANGER_COLLISION') {
+    if (now - telemetryState.lastAudioAlertTs >= AUDIO_COOLDOWN_MS) {
+      playCollisionAlarm();
+      telemetryState.lastAudioAlertTs = now;
+    }
+    return;
   }
 
-  if (alertLevel === 'DANGER_COLLISION') {
-    playCollisionAlarm();
-    telemetryState.lastAudioAlertTs = now;
-  } else if (alertLevel === 'DANGER_OVERDRIVING_VIS') {
-    playOverdrivingChime();
-    telemetryState.lastAudioAlertTs = now;
-  } else if (ldwState === 'DEPARTURE_LEFT' || ldwState === 'DEPARTURE_RIGHT') {
-    playRumbleStrip(rumbleSide || (ldwState === 'DEPARTURE_LEFT' ? 'LEFT' : 'RIGHT'));
-    telemetryState.lastAudioAlertTs = now;
+  // Priority 2: Sightline Overdriving Hazard
+  if (alertLevel === 'DANGER_OVERDRIVING_VIS') {
+    if (now - telemetryState.lastAudioAlertTs >= AUDIO_COOLDOWN_MS) {
+      playOverdrivingChime();
+      telemetryState.lastAudioAlertTs = now;
+    }
+    return;
+  }
+
+  // Priority 3: Lane Departure Warning Rumble Strip
+  if (ldwState === 'DEPARTURE_LEFT' || ldwState === 'DEPARTURE_RIGHT') {
+    if (now - telemetryState.lastAudioAlertTs >= AUDIO_COOLDOWN_MS) {
+      playRumbleStrip(rumbleSide || (ldwState === 'DEPARTURE_LEFT' ? 'LEFT' : 'RIGHT'));
+      telemetryState.lastAudioAlertTs = now;
+    }
+    return;
+  }
+
+  // Priority 4: Lead Vehicle Departure Prompter Chime (Subaru EyeSight / Honda Sensing Standard)
+  if (leadVehicleMoved) {
+    playLeadStartChime();
   }
 }
 
@@ -166,3 +186,39 @@ export function playRumbleStrip(side = 'LEFT') {
   osc.stop(startTime + 0.35);
   modOsc.stop(startTime + 0.35);
 }
+
+/**
+ * Polite, two-tone ascending luxury chime (G5 784 Hz -> C6 1046 Hz)
+ * Alerts driver when lead vehicle starts moving forward in stationary traffic.
+ */
+export function playLeadStartChime() {
+  if (isAudioMuted || !audioCtx) return;
+
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
+
+  const now = Date.now();
+  if (now - lastLvdaAlertTs < 4000) return; // 4000ms prompter lockout
+  lastLvdaAlertTs = now;
+
+  const startTime = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(783.99, startTime); // G5 note
+  osc.frequency.setValueAtTime(1046.50, startTime + 0.12); // C6 note
+
+  gain.gain.setValueAtTime(0.01, startTime);
+  gain.gain.linearRampToValueAtTime(0.35, startTime + 0.02);
+  gain.gain.setValueAtTime(0.35, startTime + 0.12);
+  gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.45);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(startTime);
+  osc.stop(startTime + 0.45);
+}
+

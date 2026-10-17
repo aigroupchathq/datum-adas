@@ -144,6 +144,8 @@ const srcFiles = [
   '../src/engines/visionEngine.js',
   '../src/engines/laneEngine.js',
   '../src/engines/safetyBrain.js',
+  '../src/engines/lvdaEngine.js',
+  '../src/engines/ecoEngine.js',
   '../src/sensors/camera.js',
   '../src/sensors/gps.js',
   '../src/sensors/wakeLock.js',

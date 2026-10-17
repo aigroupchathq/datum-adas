@@ -30,6 +30,7 @@ let cameraStatusEl = null;
 let imuStatusEl = null;
 let closingSpeedEl = null;
 let brakeLightsEl = null;
+let ecoBadgeEl = null;
 
 // AR Canvas
 let arCanvas = null;
@@ -51,6 +52,7 @@ export function initHud() {
   imuStatusEl = document.getElementById('hud-imu-status');
   closingSpeedEl = document.getElementById('hud-closing-speed');
   brakeLightsEl = document.getElementById('hud-brake-lights');
+  ecoBadgeEl = document.getElementById('hud-eco-badge');
 
   arCanvas = document.getElementById('ar-overlay-canvas');
   if (arCanvas) {
@@ -77,7 +79,7 @@ function renderLoop() {
 
   renderState();
   renderRoadOptics();
-  evaluateAudioAlert(telemetryState.alertLevel, telemetryState.ldwState, telemetryState.rumbleSide);
+  evaluateAudioAlert(telemetryState.alertLevel, telemetryState.ldwState, telemetryState.rumbleSide, telemetryState.leadVehicleMoved);
 
   requestAnimationFrame(renderLoop);
 }
@@ -251,6 +253,12 @@ function renderState() {
         } else if (telemetryState.ldwState === 'DEPARTURE_RIGHT') {
           alertBannerEl.className = 'alert-ribbon level-caution';
           alertMessageEl.textContent = `LANE DRIFT RIGHT ►`;
+        } else if (telemetryState.leadVehicleMoved) {
+          alertBannerEl.className = 'alert-ribbon level-lvda';
+          alertMessageEl.textContent = `LEAD VEHICLE MOVING ▲`;
+        } else if (telemetryState.coastingRecommendation) {
+          alertBannerEl.className = 'alert-ribbon level-coasting';
+          alertMessageEl.textContent = `COAST TO CONSERVE ⚡`;
         } else {
           alertMessageEl.textContent = ``;
         }
@@ -258,9 +266,34 @@ function renderState() {
     }
   }
 
-  // Windshield Mirroring
+  // 9. Eco-Pacing & Fuel ROI Metric Badge
+  if (ecoBadgeEl) {
+    const score = (typeof telemetryState.ecoScore === 'number' && Number.isFinite(telemetryState.ecoScore))
+      ? Math.round(telemetryState.ecoScore)
+      : 100;
+    const mpgGain = (typeof telemetryState.estimatedMpgGainPct === 'number' && Number.isFinite(telemetryState.estimatedMpgGainPct))
+      ? Math.round(telemetryState.estimatedMpgGainPct)
+      : 0;
+    ecoBadgeEl.textContent = `ECO ${score}% (+${mpgGain}% MPG)`;
+
+    if (score >= 90) {
+      ecoBadgeEl.className = 'pill-chip pill-safe';
+    } else if (score >= 75) {
+      ecoBadgeEl.className = 'pill-chip pill-sim';
+    } else if (score >= 55) {
+      ecoBadgeEl.className = 'pill-chip pill-warn';
+    } else {
+      ecoBadgeEl.className = 'pill-chip pill-danger';
+    }
+  }
+
+  // 10. True Windshield Projection & Mirroring Modes
   if (hudContainerEl) {
-    hudContainerEl.classList.toggle('mirror-hud', telemetryState.isMirroredHUD);
+    const mode = telemetryState.hudProjectionMode || (telemetryState.isMirroredHUD ? 'MIRROR_HORIZONTAL' : 'OFF');
+    hudContainerEl.classList.toggle('hud-flat-mode', mode === 'DASHBOARD_FLAT');
+    hudContainerEl.classList.toggle('hud-mirror-mode', mode === 'MIRROR_HORIZONTAL');
+    hudContainerEl.classList.toggle('mirror-hud', mode === 'MIRROR_HORIZONTAL');
+    hudContainerEl.classList.toggle('hud-projection-mode', mode !== 'OFF');
   }
 }
 
