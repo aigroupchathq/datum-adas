@@ -3,7 +3,7 @@
  * Cache-First Strategy: Guarantees 100% offline functionality in cellular dead zones.
  */
 
-const CACHE_NAME = 'datum-adas-offline-v10';
+const CACHE_NAME = 'datum-adas-offline-v11';
 
 const STATIC_ASSETS = [
   './',
@@ -16,6 +16,7 @@ const STATIC_ASSETS = [
   './src/engines/safetyBrain.js',
   './src/engines/lvdaEngine.js',
   './src/engines/ecoEngine.js',
+  './src/engines/navigationEngine.js',
   './src/workers/visionWorker.js',
   './src/sensors/camera.js',
   './src/sensors/gps.js',
@@ -23,8 +24,10 @@ const STATIC_ASSETS = [
   './src/sensors/wakeLock.js',
   './src/ui/hud.js',
   './src/ui/audioAlerts.js',
-  './src/ui/simControls.js'
+  './src/ui/simControls.js',
+  './src/ui/navHud.js'
 ];
+
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

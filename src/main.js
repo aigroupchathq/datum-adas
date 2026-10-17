@@ -10,6 +10,7 @@ import { requestWakeLock } from './sensors/wakeLock.js';
 import { initAudio } from './ui/audioAlerts.js';
 import { initHud } from './ui/hud.js';
 import { initSimControls } from './ui/simControls.js';
+import { initNavControls } from './ui/navHud.js';
 
 // Register 100% Offline Service Worker
 if ('serviceWorker' in navigator) {
@@ -78,6 +79,12 @@ function bootstrap() {
     initSimControls();
   } catch (err) {
     console.error('Sim controls init error:', err);
+  }
+
+  try {
+    initNavControls();
+  } catch (err) {
+    console.error('Nav controls init error:', err);
   }
 }
 

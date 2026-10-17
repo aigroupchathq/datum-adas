@@ -1248,7 +1248,176 @@
         font-size: 0.60rem;
       }
     }
+
+    /* ── Navigation Turn-by-Turn Side Card ─────────────────────────────────────── */
+    #hud-nav-card {
+      position: absolute;
+      top: 80px;
+      right: 16px;
+      z-index: 20;
+      display: none; /* shown only when navState === 'NAVIGATING' */
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0;
+      width: 148px;
+      background: rgba(10, 10, 14, 0.82);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border: 0.5px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.55), inset 0 0.5px 0 rgba(255,255,255,0.10);
+      transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.16,1,0.3,1);
+    }
+
+    #hud-nav-card.nav-active {
+      display: flex;
+    }
+
+    /* Maneuver glyph zone */
+    .nav-maneuver-zone {
+      padding: 12px 12px 8px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      border-bottom: 0.5px solid rgba(255,255,255,0.07);
+    }
+
+    .nav-arrow-container {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .nav-arrow-svg {
+      width: 100%;
+      height: 100%;
+      stroke: #ffffff;
+      fill: none;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: stroke 0.25s ease;
+    }
+
+    .nav-arrow-svg.arrow-caution { stroke: #ff9f0a; }
+    .nav-arrow-svg.arrow-sharp   { stroke: #ffd159; }
+
+    /* Distance countdown */
+    .nav-dist-zone {
+      padding: 8px 12px 4px 12px;
+      text-align: center;
+    }
+
+    .nav-dist-value {
+      font-size: 1.90rem;
+      font-weight: 300;
+      letter-spacing: -1.5px;
+      color: #ffffff;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+      transition: color 0.25s ease;
+    }
+
+    .nav-dist-value.dist-imminent { color: #ffd159; }
+    .nav-dist-value.dist-turn-now {
+      color: #ffd159;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      font-size: 1.1rem;
+    }
+
+    .nav-dist-unit {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: rgba(255,255,255,0.45);
+      text-transform: uppercase;
+      margin-top: 1px;
+    }
+
+    /* Street name */
+    .nav-street-zone {
+      padding: 4px 12px 10px 12px;
+      text-align: center;
+    }
+
+    .nav-street-name {
+      font-size: 0.66rem;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      color: rgba(255,255,255,0.75);
+      text-transform: uppercase;
+      line-height: 1.3;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 124px;
+    }
+
+    /* Hairline progress bar */
+    .nav-progress-zone {
+      height: 3px;
+      background: rgba(255,255,255,0.07);
+      position: relative;
+      overflow: hidden;
+    }
+
+    #nav-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #ffd159 0%, rgba(255,209,89,0.5) 100%);
+      border-radius: 999px;
+      transition: width 0.8s cubic-bezier(0.25,1,0.5,1);
+      width: 0%;
+    }
+
+    /* ETA strip */
+    .nav-eta-zone {
+      padding: 5px 12px 7px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-top: 0.5px solid rgba(255,255,255,0.06);
+    }
+
+    .nav-eta-label {
+      font-size: 0.56rem;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .nav-eta-value {
+      font-size: 0.64rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.60);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Arrived state */
+    #hud-nav-card.nav-arrived .nav-dist-value {
+      color: #30d158;
+      font-size: 0.9rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    @media (max-width: 768px) {
+      #hud-nav-card {
+        width: 118px;
+        top: 66px;
+        right: 10px;
+        border-radius: 16px;
+      }
+      .nav-dist-value { font-size: 1.55rem; }
+      .nav-arrow-container { width: 36px; height: 36px; }
+      .nav-maneuver-zone { padding: 9px 9px 6px 9px; }
+    }
   </style>
+
 </head>
 <body>
 
@@ -1337,6 +1506,43 @@
       <video id="live-camera-video" playsinline webkit-playsinline muted autoplay></video>
       <canvas id="ar-overlay-canvas"></canvas>
     </div>
+
+    <!-- Navigation Turn-by-Turn Side Card (shown only when route active) -->
+    <div id="hud-nav-card" role="navigation" aria-label="Turn guidance">
+      <!-- Maneuver glyph -->
+      <div class="nav-maneuver-zone">
+        <div class="nav-arrow-container">
+          <svg id="nav-arrow-svg" class="nav-arrow-svg" viewBox="0 0 44 44">
+            <!-- Default: straight arrow (overwritten by JS) -->
+            <line x1="22" y1="36" x2="22" y2="10"/>
+            <polyline points="14,18 22,10 30,18"/>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Continuous meter countdown -->
+      <div class="nav-dist-zone">
+        <div id="nav-dist-value" class="nav-dist-value">—</div>
+        <div id="nav-dist-unit" class="nav-dist-unit">METRES</div>
+      </div>
+
+      <!-- Street name -->
+      <div class="nav-street-zone">
+        <div id="nav-street-name" class="nav-street-name">ROUTE ACTIVE</div>
+      </div>
+
+      <!-- Hairline progress bar (full route) -->
+      <div class="nav-progress-zone">
+        <div id="nav-progress-fill"></div>
+      </div>
+
+      <!-- ETA strip -->
+      <div class="nav-eta-zone">
+        <span class="nav-eta-label">ETA</span>
+        <span id="nav-eta-value" class="nav-eta-value">—</span>
+      </div>
+    </div>
+
 
     <!-- 1. Minimalist Floating Header -->
     <header class="hud-header">
@@ -1474,9 +1680,72 @@
 
         <div class="select-item" style="grid-column: 1 / -1; margin-top: 4px;">
           <button id="btn-export-trip-receipt" class="pill-btn" style="width: 100%; padding: 11px; font-weight: 600; background: rgba(48, 209, 88, 0.14); border-color: rgba(48, 209, 88, 0.4); color: #30d158; cursor: pointer; text-align: center;">
-            ⚡ VIEW & EXPORT TRIP FUEL RECEIPT (OFFLINE PROOF-OF-SAFETY)
+            VIEW & EXPORT TRIP FUEL RECEIPT (OFFLINE PROOF-OF-SAFETY)
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- Section N: Zero-Cost Navigation & Route Guidance -->
+    <div class="drawer-section">
+      <div class="section-heading">Route Guidance — Zero Operating Cost</div>
+      <div class="calibration-select-grid" style="grid-template-columns: 1fr; gap: 10px;">
+
+        <!-- Preset Route Selector -->
+        <div class="select-item">
+          <label class="select-label" for="select-nav-preset">Built-in Corridors (Zero Network)</label>
+          <select id="select-nav-preset" class="apple-select">
+            <option value="">-- Select a preset route --</option>
+            <option value="US_101_SILICON_VALLEY">Silicon Valley Express — US-101 N</option>
+            <option value="ALPINE_A9">Munich Autobahn A9 — Nuremberg Express</option>
+            <option value="PACIFIC_COAST_PCH">Pacific Coast Highway — Big Sur Run</option>
+            <option value="LONDON_M25">London Orbital — M25 Express</option>
+          </select>
+        </div>
+
+        <!-- GPX / GeoJSON file import -->
+        <div class="select-item">
+          <label class="select-label" for="input-nav-file">Import GPX / GeoJSON Route File</label>
+          <input type="file" id="input-nav-file" accept=".gpx,.geojson,.json"
+            style="background: rgba(255,255,255,0.06); border: 0.5px solid rgba(255,255,255,0.14);
+                   color: #ffffff; border-radius: 12px; padding: 9px 12px; font-size: 0.76rem;
+                   font-family: inherit; cursor: pointer; outline: none; width: 100%;">
+        </div>
+
+        <!-- Google Maps / URL paste -->
+        <div class="select-item">
+          <label class="select-label" for="input-nav-url">Paste Google Maps / Route URL</label>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="input-nav-url" placeholder="maps.app.goo.gl/..."
+              style="flex: 1; background: rgba(255,255,255,0.06); border: 0.5px solid rgba(255,255,255,0.14);
+                     color: #ffffff; border-radius: 12px; padding: 9px 12px; font-size: 0.74rem;
+                     font-family: inherit; outline: none; min-width: 0;">
+            <button id="btn-nav-url-load" class="pill-btn"
+              style="white-space: nowrap; padding: 9px 14px; font-size: 0.72rem;">
+              Load
+            </button>
+          </div>
+        </div>
+
+        <!-- Route actions row -->
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button id="btn-nav-start" class="pill-btn"
+            style="flex: 1; padding: 10px; font-weight: 600; background: rgba(255,209,89,0.14);
+                   border-color: rgba(255,209,89,0.4); color: #ffd159; text-align: center; min-width: 80px;">
+            Start Guidance
+          </button>
+          <button id="btn-nav-stop" class="pill-btn"
+            style="flex: 1; padding: 10px; font-weight: 600; text-align: center; min-width: 80px; opacity: 0.5;">
+            Clear Route
+          </button>
+        </div>
+
+        <!-- Nav status -->
+        <div id="nav-status-row" style="font-size: 0.64rem; color: rgba(255,255,255,0.38);
+             letter-spacing: 0.5px; text-align: center; margin-top: 2px;">
+          NO ROUTE LOADED
+        </div>
+
       </div>
     </div>
 
@@ -1488,6 +1757,7 @@
           <div class="slider-label-row">
             <span>Vehicle Speed</span>
             <span id="val-sim-speed" class="slider-value">65 mph</span>
+
           </div>
           <input type="range" id="slider-speed" min="0" max="110" value="65">
         </div>

@@ -262,10 +262,10 @@ function renderState() {
           alertMessageEl.textContent = `LANE DRIFT RIGHT ►`;
         } else if (telemetryState.leadVehicleMoved) {
           alertBannerEl.className = 'alert-ribbon level-lvda';
-          alertMessageEl.textContent = `LEAD VEHICLE MOVING ▲`;
+          alertMessageEl.textContent = `LEAD VEHICLE MOVING`;
         } else if (telemetryState.coastingRecommendation) {
           alertBannerEl.className = 'alert-ribbon level-coasting';
-          alertMessageEl.textContent = `COAST TO CONSERVE ⚡`;
+          alertMessageEl.textContent = `COAST TO CONSERVE`;
         } else {
           alertMessageEl.textContent = ``;
         }
@@ -379,25 +379,43 @@ function renderRoadOptics() {
   const carRightM = +0.925;
   const stripeWidthM = 0.15; // 15cm highway stripe width
 
-  // A. Inner Vehicle Wheel-Track Trajectory (1.85m track width)
+  // Navigation curvature: lateral offset at far-point = ½·κ·z²
+  // Clamped to ±3.0m max lateral bend for visual sanity
+  const rawKappa = telemetryState.routeCurvatureKappa || 0;
+  const kappa = Math.max(-0.04, Math.min(0.04, rawKappa)); // clamp to gentle curve
+  const curveFarOffsetM = 0.5 * kappa * (55.0 * 55.0); // lateral bend at 55m
+  const curveNearOffsetM = 0.5 * kappa * (4.0 * 4.0);   // tiny offset at near (smooth join)
+
+  // A. Inner Vehicle Wheel-Track Trajectory (1.85m track width) — curved toward turn
   const trackNearY = h + 10;
   const trackNearZ = Math.max(1.0, (H_CAM * F_OPT) / Math.max(1, (trackNearY - horizonPx)));
   const trackFarZ = 55.0; // 55m ahead
   const trackFarY = horizonPx + (H_CAM * F_OPT) / trackFarZ;
 
-  const xNearL = (w / 2) + (carLeftM * F_OPT) / trackNearZ;
-  const xFarL = (w / 2) + (carLeftM * F_OPT) / trackFarZ;
-  const xNearR = (w / 2) + (carRightM * F_OPT) / trackNearZ;
-  const xFarR = (w / 2) + (carRightM * F_OPT) / trackFarZ;
+  const xNearL = (w / 2) + ((carLeftM  + curveNearOffsetM) * F_OPT) / trackNearZ;
+  const xFarL  = (w / 2) + ((carLeftM  + curveFarOffsetM)  * F_OPT) / trackFarZ;
+  const xNearR = (w / 2) + ((carRightM + curveNearOffsetM) * F_OPT) / trackNearZ;
+  const xFarR  = (w / 2) + ((carRightM + curveFarOffsetM)  * F_OPT) / trackFarZ;
+
+  // Quadratic control point for smooth curvature (mid-depth lateral shift)
+  const trackMidZ = 18.0;
+  const curveMidOffsetM = 0.5 * kappa * (trackMidZ * trackMidZ);
+  const trackMidY = horizonPx + (H_CAM * F_OPT) / trackMidZ;
+  const xMidL = (w / 2) + ((carLeftM  + curveMidOffsetM) * F_OPT) / trackMidZ;
+  const xMidR = (w / 2) + ((carRightM + curveMidOffsetM) * F_OPT) / trackMidZ;
 
   arCtx.strokeStyle = isDanger ? 'rgba(255, 59, 48, 0.40)' : (isCaution ? 'rgba(255, 149, 0, 0.30)' : 'rgba(255, 209, 89, 0.18)');
   arCtx.lineWidth = 1.0;
   arCtx.beginPath();
-  arCtx.moveTo(xFarL, trackFarY);
-  arCtx.lineTo(xNearL, trackNearY);
-  arCtx.moveTo(xFarR, trackFarY);
-  arCtx.lineTo(xNearR, trackNearY);
+  // Left wheel-track: smooth quadratic Bezier from near to far through mid control point
+  arCtx.moveTo(xNearL, trackNearY);
+  arCtx.quadraticCurveTo(xMidL, trackMidY, xFarL, trackFarY);
+  // Right wheel-track
+  arCtx.moveTo(xNearR, trackNearY);
+  arCtx.quadraticCurveTo(xMidR, trackMidY, xFarR, trackFarY);
   arCtx.stroke();
+
+
 
   // B. Highway Dashed Lane Stripes (Golden / Yellow Luxury Automotive Palette)
   // Standard highway geometry: 3.6m lane width (-1.8m left, +1.8m right)
@@ -434,13 +452,16 @@ function renderRoadOptics() {
     const nearFade = Math.max(0.3, Math.min(1.0, (h + 40 - y1) / 60.0));
     const fade = Math.max(0.18, Math.min(1.0, farFade * nearFade));
 
-    // Left Lane Dash (X = laneLeftM)
-    const xL1 = (w / 2) + (laneLeftM * F_OPT) / clampedZ1;
-    const xL2 = (w / 2) + (laneLeftM * F_OPT) / clampedZ2;
+    // Left Lane Dash (X = laneLeftM + curvature lateral shift per depth)
+    const curveOffL1 = 0.5 * kappa * (clampedZ1 * clampedZ1);
+    const curveOffL2 = 0.5 * kappa * (clampedZ2 * clampedZ2);
+    const xL1 = (w / 2) + ((laneLeftM  + curveOffL1) * F_OPT) / clampedZ1;
+    const xL2 = (w / 2) + ((laneLeftM  + curveOffL2) * F_OPT) / clampedZ2;
 
-    // Right Lane Dash (X = laneRightM)
-    const xR1 = (w / 2) + (laneRightM * F_OPT) / clampedZ1;
-    const xR2 = (w / 2) + (laneRightM * F_OPT) / clampedZ2;
+    // Right Lane Dash (X = laneRightM + curvature)
+    const xR1 = (w / 2) + ((laneRightM + curveOffL1) * F_OPT) / clampedZ1;
+    const xR2 = (w / 2) + ((laneRightM + curveOffL2) * F_OPT) / clampedZ2;
+
 
     // Golden / Yellow luxury palette with active hazard escalation
     let strokeGoldL = `rgba(255, 209, 89, ${0.92 * fade})`;

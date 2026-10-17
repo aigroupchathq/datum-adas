@@ -93,5 +93,22 @@ export const telemetryState = {
   tripDistanceMiles: 0.0,      // Cumulative miles driven this session
   tripDurationSec: 0,          // Total active driving time in seconds
   cutInGraceRemainingSec: 0,   // Active 4.0s cut-in grace protection countdown
-  coastingRecommendation: false // True when approaching stopped queue with throttle applied
+  coastingRecommendation: false, // True when approaching stopped queue with throttle applied
+
+  // ── Zero-Cost Navigation & Turn-by-Turn Guidance ─────────────────────────────
+  navState: 'STANDBY',            // 'STANDBY' | 'NAVIGATING' | 'ARRIVED' | 'OFF_ROUTE'
+  activeRouteName: null,          // e.g. "Silicon Valley Express — US-101 N"
+  activeRoutePoints: null,        // [{lat, lon, name}] — full polyline in memory
+  nextManeuverType: null,         // 'STRAIGHT'|'SLIGHT_RIGHT'|'RIGHT'|'SHARP_RIGHT'|'U_TURN' + LEFT mirrors + 'ARRIVE'
+  nextManeuverDistM: 0,           // Continuous meter countdown to next turn
+  nextManeuverDistDisplay: '0 m', // Formatted string for HUD (e.g. "280 m")
+  nextStreetName: '',             // Target street/highway name (e.g. "BAYSHORE FWY")
+  routeRemainingDistM: 0,         // Total remaining route distance (metres)
+  routeEtaSec: null,              // ETA in seconds at current speed
+  routeCurvatureKappa: 0,         // Signed curvature κ for 3D AR corridor bending (+right, -left)
+  navProgressFraction: 0,         // Route progress 0.0 → 1.0
+  upcomingTurnDecelRequired: false, // Arms eco-pacing COAST signal 200m before sharp turns
+  navImperial: false,             // True = miles/feet display
+  navVoiceEnabled: false,         // Browser Web Speech API voice prompter
 };
+
