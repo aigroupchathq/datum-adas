@@ -210,7 +210,10 @@ function renderState() {
 
   if (cameraStatusEl) {
     if (telemetryState.cameraStatus === 'ACTIVE') {
-      if (telemetryState.calibrationState === 'CALIBRATED') {
+      if (telemetryState.sensorIncongruence) {
+        cameraStatusEl.textContent = '▲ CAM INCONGRUENT';
+        cameraStatusEl.className = 'pill-chip pill-danger';
+      } else if (telemetryState.calibrationState === 'CALIBRATED') {
         cameraStatusEl.textContent = '● OPTICS: CALIBRATED';
         cameraStatusEl.className = 'pill-chip pill-safe';
       } else {
@@ -263,14 +266,19 @@ function renderState() {
 function renderRoadOptics() {
   if (!arCanvas || !arCtx) return;
 
-  const w = arCanvas.clientWidth;
-  const h = arCanvas.clientHeight;
+  const dpr = Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
+  const w = arCanvas.clientWidth || 390;
+  const h = arCanvas.clientHeight || 844;
+  const targetBufferW = Math.round(w * dpr);
+  const targetBufferH = Math.round(h * dpr);
 
-  if (arCanvas.width !== w || arCanvas.height !== h) {
-    arCanvas.width = w;
-    arCanvas.height = h;
+  if (arCanvas.width !== targetBufferW || arCanvas.height !== targetBufferH) {
+    arCanvas.width = targetBufferW;
+    arCanvas.height = targetBufferH;
   }
 
+  arCtx.save();
+  arCtx.scale(dpr, dpr);
   arCtx.clearRect(0, 0, w, h);
 
   // Isotropic Pinhole Optics (Square pixels: Fx == Fy)
@@ -613,6 +621,8 @@ function renderRoadOptics() {
 
     arCtx.restore();
   }
+
+  arCtx.restore(); // Balance top-level DPR save
 }
 
 export function stopHud() {

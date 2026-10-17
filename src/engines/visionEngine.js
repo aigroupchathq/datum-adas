@@ -44,11 +44,15 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
       assumedFrictionMu: 0.82,
       surfaceType: 'DRY_ASPHALT',
       targetDistanceM: 120,
+      conservativeDistanceM: 120,
+      opticalUncertaintyM: 0,
       targetClosingSpeedMph: 0,
       targetBrakeLightsDetected: false,
       targetConfidencePct: 0,
+      confidenceScore: 0,
       obstacleBbox: null,
-      sensorConfidence: 'OFFLINE'
+      sensorConfidence: 'OFFLINE',
+      calibrationState: 'UNCALIBRATED'
     };
   }
 
@@ -329,4 +333,16 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
     sensorConfidence,
     calibrationState
   };
+}
+
+/**
+ * Resets temporal looming tracking and vanishing-point convergence buffers
+ */
+export function resetVisionState() {
+  prevTarget = {
+    distanceM: 120,
+    widthPx: 0,
+    ts: 0
+  };
+  calibrationFrameCount = 0;
 }

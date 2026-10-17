@@ -5,7 +5,7 @@
  */
 
 import { telemetryState } from '../state.js';
-import { analyzeFrame } from '../engines/visionEngine.js';
+import { analyzeFrame, resetVisionState } from '../engines/visionEngine.js';
 import { evaluateSafety } from '../engines/safetyBrain.js';
 
 let videoElement = null;
@@ -155,6 +155,12 @@ function sampleAndAnalyze() {
     });
 
     Object.assign(telemetryState, visionOutputs);
+
+    // Cross-sensor validation (Sensor Incongruence Flag)
+    // If GNSS indicates highway travel (> 15 mph / 6.7 m/s) but camera sensor is degraded or obstructed
+    const isMovingAtRoadSpeed = telemetryState.speedMps > 6.7;
+    const isOpticalDegraded = visionOutputs.sensorConfidence === 'DEGRADED' || visionOutputs.visibilityPct < 15;
+    telemetryState.sensorIncongruence = isMovingAtRoadSpeed && isOpticalDegraded;
   }
 
   // Safety Brain evaluation
@@ -173,6 +179,8 @@ export function stopCamera() {
     tracks.forEach(track => track.stop());
     videoElement.srcObject = null;
   }
+
+  resetVisionState();
 
   telemetryState.isRunning = false;
   telemetryState.cameraStatus = 'OFFLINE';

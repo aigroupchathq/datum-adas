@@ -61,7 +61,7 @@ export function evaluateAudioAlert(alertLevel) {
  */
 function playCollisionAlarm() {
   if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
+    audioCtx.resume().catch(() => {});
   }
 
   const startTime = audioCtx.currentTime;
@@ -92,7 +92,7 @@ function playCollisionAlarm() {
  */
 function playOverdrivingChime() {
   if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
+    audioCtx.resume().catch(() => {});
   }
 
   const startTime = audioCtx.currentTime;

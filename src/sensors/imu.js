@@ -46,13 +46,36 @@ export function initImu() {
 function attachOrientationListeners() {
   window.addEventListener('deviceorientation', handleOrientation, { passive: true });
   window.addEventListener('devicemotion', handleMotion, { passive: true });
+
+  if (window.screen && window.screen.orientation) {
+    window.screen.orientation.addEventListener('change', resetImuBaseline);
+  } else {
+    window.addEventListener('orientationchange', resetImuBaseline);
+  }
 }
 
 function handleOrientation(event) {
   if (event.beta === null || event.gamma === null) return;
 
-  const rawPitch = event.beta; // Tilt front-to-back (-180 to 180)
-  const rawRoll = event.gamma;  // Tilt left-to-right (-90 to 90)
+  // Resolve screen orientation angle (0 = portrait, 90 = landscape-primary, 270/-90 = landscape-secondary)
+  const orientationAngle = (typeof window !== 'undefined' && window.screen && window.screen.orientation && typeof window.screen.orientation.angle === 'number')
+    ? window.screen.orientation.angle
+    : ((typeof window !== 'undefined' && typeof window.orientation === 'number') ? window.orientation : 0);
+
+  let rawPitch = event.beta; // Tilt front-to-back (-180 to 180)
+  let rawRoll = event.gamma;  // Tilt left-to-right (-90 to 90)
+
+  // Coordinate frame transformation for automotive landscape dashboard mounts
+  if (orientationAngle === 90) {
+    rawPitch = event.gamma;
+    rawRoll = -event.beta;
+  } else if (orientationAngle === 270 || orientationAngle === -90) {
+    rawPitch = -event.gamma;
+    rawRoll = event.beta;
+  } else if (orientationAngle === 180) {
+    rawPitch = -event.beta;
+    rawRoll = -event.gamma;
+  }
 
   // 1. GIMBAL LOCK SINGULARITY PROTECTION AT UPRIGHT MOUNT (beta ≈ 90°)
   // When beta approaches 90° (phone mounted vertically in car), W3C Euler angles
