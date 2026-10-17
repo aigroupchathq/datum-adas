@@ -7,18 +7,6 @@
   <title>DATUM ATELIER • Automotive Intelligence</title>
   <link rel="manifest" href="./manifest.json">
   <script>
-    // Purge any stale service worker caches on mobile load
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(function(regs) {
-        for (var i = 0; i < regs.length; i++) regs[i].unregister();
-      });
-    }
-    if ('caches' in window) {
-      caches.keys().then(function(keys) {
-        for (var j = 0; j < keys.length; j++) caches.delete(keys[j]);
-      });
-    }
-
     // Direct synchronous user gesture activation launcher (iOS / WebKit hardened)
     window.__launchAdas = function(e) {
       if (e) {
