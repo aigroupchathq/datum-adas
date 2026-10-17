@@ -83,9 +83,15 @@ export const telemetryState = {
   departureDistanceM: 0,       // Distance lead car has moved away from queue (meters)
 
   // Direct Financial ROI: Eco-Kinematic Momentum Optimizer
+  powertrain: 'ICE',           // 'ICE' (Gas/Diesel) | 'HYBRID' | 'EV' (Battery Electric)
   ecoScore: 100,               // 0 - 100% Kinetic momentum efficiency score
   ecoTier: 'OPTIMAL',          // 'OPTIMAL' | 'EFFICIENT' | 'MODERATE' | 'AGGRESSIVE'
   smoothBrakingPct: 100,       // Percentage of decelerations within regenerative/coasting envelope
-  estimatedMpgGainPct: 0,      // Projected fuel / EV battery range improvement (0 - 15%)
+  tripSafeBufferPct: 100,      // Percentage of driving time within compliant safe headway buffer
+  estimatedMpgGainPct: 0,      // Projected fuel / EV battery range improvement (0 - 18%)
+  tripDollarsSaved: 0.00,      // Total financial cash dollars saved this trip ($ USD)
+  tripDistanceMiles: 0.0,      // Cumulative miles driven this session
+  tripDurationSec: 0,          // Total active driving time in seconds
+  cutInGraceRemainingSec: 0,   // Active 4.0s cut-in grace protection countdown
   coastingRecommendation: false // True when approaching stopped queue with throttle applied
 };

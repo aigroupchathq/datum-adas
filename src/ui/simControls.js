@@ -5,6 +5,7 @@
 
 import { telemetryState } from '../state.js';
 import { toggleAudioMute } from './audioAlerts.js';
+import { generateTripReceipt } from '../engines/ecoEngine.js';
 
 const MPH_TO_MPS = 0.44704;
 
@@ -120,6 +121,83 @@ export function initSimControls() {
       } else {
         telemetryState.cameraHeightM = 1.25; // Sedan default
       }
+    });
+  }
+
+  // Powertrain Configuration
+  const powertrainSelect = document.getElementById('select-powertrain');
+  if (powertrainSelect) {
+    powertrainSelect.addEventListener('change', (e) => {
+      telemetryState.powertrain = e.target.value;
+    });
+  }
+
+  // Trip Fuel Receipt & Proof-of-Safety Modal Handlers
+  const receiptModal = document.getElementById('receipt-modal');
+  const btnExportTripReceipt = document.getElementById('btn-export-trip-receipt');
+  const btnCloseReceipt = document.getElementById('btn-close-receipt');
+  const btnDownloadReceiptJson = document.getElementById('btn-download-receipt-json');
+
+  const receiptEcoScore = document.getElementById('receipt-eco-score');
+  const receiptEcoTier = document.getElementById('receipt-eco-tier');
+  const receiptDollarsSaved = document.getElementById('receipt-dollars-saved');
+  const receiptMpgGain = document.getElementById('receipt-mpg-gain');
+  const receiptSafeBuffer = document.getElementById('receipt-safe-buffer');
+  const receiptSmoothBraking = document.getElementById('receipt-smooth-braking');
+
+  function openReceiptModal() {
+    if (!receiptModal) return;
+    const score = Math.round(telemetryState.ecoScore || 100);
+    const tier = telemetryState.ecoTier || 'OPTIMAL';
+    const dollars = (telemetryState.tripDollarsSaved || 0).toFixed(2);
+    const gain = telemetryState.estimatedMpgGainPct || 0;
+    const unit = telemetryState.powertrain === 'EV' ? 'mi/kWh' : 'MPG';
+    const safeBuf = telemetryState.tripSafeBufferPct || 100;
+    const smoothBrk = telemetryState.smoothBrakingPct || 100;
+
+    if (receiptEcoScore) receiptEcoScore.textContent = `${score}%`;
+    if (receiptEcoTier) receiptEcoTier.textContent = `${tier} PACING`;
+    if (receiptDollarsSaved) receiptDollarsSaved.textContent = `+$${dollars}`;
+    if (receiptMpgGain) receiptMpgGain.textContent = `+${gain}% ${unit} BOOST`;
+    if (receiptSafeBuffer) receiptSafeBuffer.textContent = `${safeBuf}%`;
+    if (receiptSmoothBraking) receiptSmoothBraking.textContent = `${smoothBrk}%`;
+
+    receiptModal.style.display = 'flex';
+  }
+
+  function closeReceiptModal() {
+    if (receiptModal) receiptModal.style.display = 'none';
+  }
+
+  if (btnExportTripReceipt) {
+    btnExportTripReceipt.addEventListener('click', openReceiptModal);
+  }
+
+  if (btnCloseReceipt) {
+    btnCloseReceipt.addEventListener('click', closeReceiptModal);
+  }
+
+  if (receiptModal) {
+    receiptModal.addEventListener('click', (e) => {
+      if (e.target === receiptModal) closeReceiptModal();
+    });
+  }
+
+  if (btnDownloadReceiptJson) {
+    btnDownloadReceiptJson.addEventListener('click', () => {
+      const receiptData = generateTripReceipt({
+        powertrain: telemetryState.powertrain,
+        dollarsSaved: telemetryState.tripDollarsSaved
+      });
+      const blob = new Blob([JSON.stringify(receiptData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `datum-trip-safety-receipt-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     });
   }
 

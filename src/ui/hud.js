@@ -53,6 +53,13 @@ export function initHud() {
   closingSpeedEl = document.getElementById('hud-closing-speed');
   brakeLightsEl = document.getElementById('hud-brake-lights');
   ecoBadgeEl = document.getElementById('hud-eco-badge');
+  if (ecoBadgeEl) {
+    ecoBadgeEl.style.cursor = 'pointer';
+    ecoBadgeEl.addEventListener('click', () => {
+      const openReceiptBtn = document.getElementById('btn-export-trip-receipt');
+      if (openReceiptBtn) openReceiptBtn.click();
+    });
+  }
 
   arCanvas = document.getElementById('ar-overlay-canvas');
   if (arCanvas) {
@@ -271,10 +278,14 @@ function renderState() {
     const score = (typeof telemetryState.ecoScore === 'number' && Number.isFinite(telemetryState.ecoScore))
       ? Math.round(telemetryState.ecoScore)
       : 100;
-    const mpgGain = (typeof telemetryState.estimatedMpgGainPct === 'number' && Number.isFinite(telemetryState.estimatedMpgGainPct))
+    const gain = (typeof telemetryState.estimatedMpgGainPct === 'number' && Number.isFinite(telemetryState.estimatedMpgGainPct))
       ? Math.round(telemetryState.estimatedMpgGainPct)
       : 0;
-    ecoBadgeEl.textContent = `ECO ${score}% (+${mpgGain}% MPG)`;
+    const dollars = (typeof telemetryState.tripDollarsSaved === 'number' && telemetryState.tripDollarsSaved > 0)
+      ? ` • +$${telemetryState.tripDollarsSaved.toFixed(2)}`
+      : '';
+    const unit = telemetryState.powertrain === 'EV' ? 'mi/kWh' : 'MPG';
+    ecoBadgeEl.textContent = `ECO ${score}% (+${gain}% ${unit}${dollars})`;
 
     if (score >= 90) {
       ecoBadgeEl.className = 'pill-chip pill-safe';

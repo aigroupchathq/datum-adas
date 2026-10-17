@@ -804,6 +804,157 @@
     .ind-amber { background: var(--accent-caution); box-shadow: 0 0 6px var(--accent-caution); }
     .ind-green { background: var(--accent-safe); box-shadow: 0 0 6px var(--accent-safe); }
 
+    /* Trip Fuel Receipt & Proof-of-Safety Modal */
+    .receipt-modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 10000;
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    .receipt-card {
+      background: #141722;
+      border: 0.5px solid rgba(255, 255, 255, 0.16);
+      border-radius: 28px;
+      width: 100%;
+      max-width: 520px;
+      padding: 24px;
+      box-shadow: 0 24px 64px rgba(0, 0, 0, 0.75), 0 0 1px rgba(255, 255, 255, 0.3);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-sizing: border-box;
+      animation: receiptPop 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes receiptPop {
+      0% { transform: scale(0.95); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .receipt-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 0.5px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 12px;
+    }
+
+    .receipt-title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .receipt-eyebrow {
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 2px;
+      color: rgba(255, 255, 255, 0.45);
+      text-transform: uppercase;
+    }
+
+    .receipt-heading {
+      font-size: 1.15rem;
+      font-weight: 650;
+      letter-spacing: -0.2px;
+      color: #ffffff;
+      margin: 0;
+    }
+
+    .receipt-close-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 0.5px solid rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      font-size: 1.2rem;
+      line-height: 1;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .receipt-close-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .receipt-stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .stat-box {
+      background: rgba(255, 255, 255, 0.04);
+      border: 0.5px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .stat-label {
+      font-size: 0.66rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .stat-val {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+    }
+
+    .highlight-green {
+      color: #30d158;
+      text-shadow: 0 0 12px rgba(48, 209, 88, 0.35);
+    }
+
+    .highlight-gold {
+      color: #ffd159;
+      text-shadow: 0 0 12px rgba(255, 209, 89, 0.35);
+    }
+
+    .stat-sub {
+      font-size: 0.58rem;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+    }
+
+    .receipt-guarantee-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      background: rgba(48, 209, 88, 0.06);
+      border: 0.5px solid rgba(48, 209, 88, 0.18);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 0.66rem;
+      line-height: 1.4;
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    .receipt-footer {
+      display: flex;
+      justify-content: flex-end;
+      padding-top: 4px;
+    }
+
     /* Splash Screen (Neat Black Minimal Automotive Theme) */
     /* Splash Screen (Neat Black Minimal Automotive Theme - Full Screen Viewport) */
     #splash-overlay {
@@ -1311,6 +1462,21 @@
             <option value="TRUCK">Heavy Truck (2.10m mount)</option>
           </select>
         </div>
+
+        <div class="select-item">
+          <label class="select-label" for="select-powertrain">Powertrain & Energy Model</label>
+          <select id="select-powertrain" class="apple-select">
+            <option value="ICE">Gasoline / Diesel (ICE)</option>
+            <option value="HYBRID">Hybrid Electric (HEV/PHEV)</option>
+            <option value="EV">Battery Electric (BEV)</option>
+          </select>
+        </div>
+
+        <div class="select-item" style="grid-column: 1 / -1; margin-top: 4px;">
+          <button id="btn-export-trip-receipt" class="pill-btn" style="width: 100%; padding: 11px; font-weight: 600; background: rgba(48, 209, 88, 0.14); border-color: rgba(48, 209, 88, 0.4); color: #30d158; cursor: pointer; text-align: center;">
+            ⚡ VIEW & EXPORT TRIP FUEL RECEIPT (OFFLINE PROOF-OF-SAFETY)
+          </button>
+        </div>
       </div>
     </div>
 
@@ -1371,6 +1537,55 @@
       </div>
     </div>
   </aside>
+
+  <!-- End-of-Trip Fuel Receipt & Proof-of-Safety Modal -->
+  <div id="receipt-modal" class="receipt-modal-backdrop" style="display: none;">
+    <div class="receipt-card">
+      <div class="receipt-header">
+        <div class="receipt-title-group">
+          <span class="receipt-eyebrow">DATUM ATELIER • TELEMATICS DOSSIER</span>
+          <h2 class="receipt-heading">Trip Fuel Receipt & Proof-of-Safety</h2>
+        </div>
+        <button id="btn-close-receipt" class="receipt-close-btn">&times;</button>
+      </div>
+
+      <div class="receipt-body">
+        <div class="receipt-stat-grid">
+          <div class="stat-box">
+            <span class="stat-label">Eco Momentum Score</span>
+            <span id="receipt-eco-score" class="stat-val highlight-green">100%</span>
+            <span id="receipt-eco-tier" class="stat-sub">OPTIMAL PACING</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Estimated Cash Saved</span>
+            <span id="receipt-dollars-saved" class="stat-val highlight-gold">+$0.00</span>
+            <span id="receipt-mpg-gain" class="stat-sub">+14% MPG BOOST</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Safe Following Buffer</span>
+            <span id="receipt-safe-buffer" class="stat-val">100%</span>
+            <span class="stat-sub">TIME IN COMPLIANT ZONE</span>
+          </div>
+          <div class="stat-box">
+            <span class="stat-label">Smooth Braking Ratio</span>
+            <span id="receipt-smooth-braking" class="stat-val">100%</span>
+            <span class="stat-sub">REGENERATIVE / COASTING</span>
+          </div>
+        </div>
+
+        <div class="receipt-guarantee-note" style="margin-top: 14px;">
+          <span class="guarantee-dot">●</span>
+          <span>100% Air-Gapped Verification: Generated entirely in local browser memory. Zero GPS coordinates, telemetry, or video streams were uploaded or stored.</span>
+        </div>
+      </div>
+
+      <div class="receipt-footer">
+        <button id="btn-download-receipt-json" class="btn-engage" style="padding: 12px 24px; font-size: 0.74rem; width: 100%;">
+          DOWNLOAD SIGNED JSON RECEIPT
+        </button>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="./src/main.js"></script>
 </body>
