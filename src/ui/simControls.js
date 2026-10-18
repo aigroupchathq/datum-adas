@@ -34,9 +34,13 @@ export function initSimControls() {
   const hudViewportEl = document.getElementById('hud-viewport');
   // Drawer Toggle buttons
   const drawerToggleBtn = document.getElementById('btn-sim-drawer-toggle');
+  const portraitMenuBtn = document.getElementById('btn-portrait-menu');
   const drawerCloseBtn = document.getElementById('btn-sim-close');
   if (drawerToggleBtn && simDrawer) {
     drawerToggleBtn.addEventListener('click', () => simDrawer.classList.toggle('open'));
+  }
+  if (portraitMenuBtn && simDrawer) {
+    portraitMenuBtn.addEventListener('click', () => simDrawer.classList.toggle('open'));
   }
   if (drawerCloseBtn && simDrawer) {
     drawerCloseBtn.addEventListener('click', () => simDrawer.classList.remove('open'));
@@ -214,12 +218,14 @@ export function initSimControls() {
     telemetryState.hudProjectionMode = nextMode;
     telemetryState.isMirroredHUD = nextMode !== 'OFF';
 
-    if (mirrorToggleBtn) {
+    const drawerMirrorBtn = document.getElementById('btn-drawer-mirror-toggle');
+    const updateMirrorBtnUI = (btn) => {
+      if (!btn) return;
       const isActive = nextMode !== 'OFF';
-      mirrorToggleBtn.classList.toggle('active', isActive);
-      const led = mirrorToggleBtn.querySelector('.toggle-led');
+      btn.classList.toggle('active', isActive);
+      const led = btn.querySelector('.toggle-led');
       if (led) led.classList.toggle('led-active', isActive);
-      const text = mirrorToggleBtn.querySelector('.toggle-text');
+      const text = btn.querySelector('.toggle-text');
       if (text) {
         if (nextMode === 'DASHBOARD_FLAT') {
           text.textContent = 'HUD: FLAT';
@@ -229,11 +235,18 @@ export function initSimControls() {
           text.textContent = 'HUD MODE';
         }
       }
-    }
+    };
+
+    updateMirrorBtnUI(mirrorToggleBtn);
+    updateMirrorBtnUI(drawerMirrorBtn);
   }
 
+  const drawerMirrorBtn = document.getElementById('btn-drawer-mirror-toggle');
   if (mirrorToggleBtn) {
     mirrorToggleBtn.addEventListener('click', cycleHudMode);
+  }
+  if (drawerMirrorBtn) {
+    drawerMirrorBtn.addEventListener('click', cycleHudMode);
   }
 
   // Double-tap on viewport to toggle HUD projection mode
@@ -252,15 +265,24 @@ export function initSimControls() {
   }
 
   // Mute Toggle
-  if (muteToggleBtn) {
-    muteToggleBtn.addEventListener('click', () => {
-      const muted = toggleAudioMute();
-      muteToggleBtn.classList.toggle('active', !muted);
-      const led = muteToggleBtn.querySelector('.toggle-led');
+  const drawerMuteBtn = document.getElementById('btn-drawer-mute-toggle');
+  function handleMuteToggle() {
+    const muted = toggleAudioMute();
+    [muteToggleBtn, drawerMuteBtn].forEach(btn => {
+      if (!btn) return;
+      btn.classList.toggle('active', !muted);
+      const led = btn.querySelector('.toggle-led');
       if (led) led.classList.toggle('led-active', !muted);
-      const text = muteToggleBtn.querySelector('.toggle-text');
-      if (text) text.textContent = muted ? 'AUDIO: MUTED' : 'AUDIO';
+      const text = btn.querySelector('.toggle-text');
+      if (text) text.textContent = muted ? 'AUDIO: MUTED' : (btn === drawerMuteBtn ? 'AUDIO ALERTS' : 'AUDIO');
     });
+  }
+
+  if (muteToggleBtn) {
+    muteToggleBtn.addEventListener('click', handleMuteToggle);
+  }
+  if (drawerMuteBtn) {
+    drawerMuteBtn.addEventListener('click', handleMuteToggle);
   }
 
   // Preset Scenarios

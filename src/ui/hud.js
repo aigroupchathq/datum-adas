@@ -388,10 +388,14 @@ function renderRoadOptics() {
   arCtx.scale(dpr, dpr);
   arCtx.clearRect(0, 0, w, h);
 
-  // Isotropic Pinhole Optics (Square pixels: Fx == Fy)
+  // Isotropic Pinhole Optics with Adaptive Portrait Frustum
   // Matching camera viewport object-fit: cover scaling
+  const isPortrait = h > w;
   const scale = Math.max(w / 160, h / 120);
   const F_OPT = 115 * scale;
+  // Dynamic horizontal and vertical focal lengths: prevent corridor clipping on tall narrow screens
+  const F_OPT_X = isPortrait ? (w * 0.82) : F_OPT;
+  const F_OPT_Y = isPortrait ? (F_OPT * 0.70) : F_OPT;
   const vidW = 160 * scale;
   const vidH = 120 * scale;
   const offsetX = (w - vidW) / 2;
@@ -399,7 +403,9 @@ function renderRoadOptics() {
 
   // Stabilized Horizon row mapped to screen pixels
   const normHorizonY = (telemetryState.horizonY !== undefined ? telemetryState.horizonY : 54);
-  const horizonPx = Math.max(h * 0.20, Math.min(h * 0.80, offsetY + (normHorizonY * scale)));
+  const horizonPx = isPortrait
+    ? Math.max(h * 0.28, Math.min(h * 0.48, h * 0.38 + (telemetryState.pitchDeg || 0) * 3))
+    : Math.max(h * 0.20, Math.min(h * 0.80, offsetY + (normHorizonY * scale)));
   const H_CAM = Math.max(0.8, telemetryState.cameraHeightM || 1.25);
 
   let isDanger = telemetryState.alertLevel === 'DANGER_COLLISION';
@@ -443,21 +449,21 @@ function renderRoadOptics() {
 
   // A. Inner Vehicle Wheel-Track Trajectory (1.85m track width) — curved toward turn
   const trackNearY = h + 10;
-  const trackNearZ = Math.max(1.0, (H_CAM * F_OPT) / Math.max(1, (trackNearY - horizonPx)));
+  const trackNearZ = Math.max(1.0, (H_CAM * F_OPT_Y) / Math.max(1, (trackNearY - horizonPx)));
   const trackFarZ = 55.0; // 55m ahead
-  const trackFarY = horizonPx + (H_CAM * F_OPT) / trackFarZ;
+  const trackFarY = horizonPx + (H_CAM * F_OPT_Y) / trackFarZ;
 
-  const xNearL = (w / 2) + ((carLeftM  + curveNearOffsetM) * F_OPT) / trackNearZ;
-  const xFarL  = (w / 2) + ((carLeftM  + curveFarOffsetM)  * F_OPT) / trackFarZ;
-  const xNearR = (w / 2) + ((carRightM + curveNearOffsetM) * F_OPT) / trackNearZ;
-  const xFarR  = (w / 2) + ((carRightM + curveFarOffsetM)  * F_OPT) / trackFarZ;
+  const xNearL = (w / 2) + ((carLeftM  + curveNearOffsetM) * F_OPT_X) / trackNearZ;
+  const xFarL  = (w / 2) + ((carLeftM  + curveFarOffsetM)  * F_OPT_X) / trackFarZ;
+  const xNearR = (w / 2) + ((carRightM + curveNearOffsetM) * F_OPT_X) / trackNearZ;
+  const xFarR  = (w / 2) + ((carRightM + curveFarOffsetM)  * F_OPT_X) / trackFarZ;
 
   // Quadratic control point for smooth curvature (mid-depth lateral shift)
   const trackMidZ = 18.0;
   const curveMidOffsetM = 0.5 * kappa * (trackMidZ * trackMidZ);
-  const trackMidY = horizonPx + (H_CAM * F_OPT) / trackMidZ;
-  const xMidL = (w / 2) + ((carLeftM  + curveMidOffsetM) * F_OPT) / trackMidZ;
-  const xMidR = (w / 2) + ((carRightM + curveMidOffsetM) * F_OPT) / trackMidZ;
+  const trackMidY = horizonPx + (H_CAM * F_OPT_Y) / trackMidZ;
+  const xMidL = (w / 2) + ((carLeftM  + curveMidOffsetM) * F_OPT_X) / trackMidZ;
+  const xMidR = (w / 2) + ((carRightM + curveMidOffsetM) * F_OPT_X) / trackMidZ;
 
   arCtx.strokeStyle = isDanger ? 'rgba(255, 59, 48, 0.40)' : (isCaution ? 'rgba(255, 149, 0, 0.30)' : 'rgba(255, 209, 89, 0.18)');
   arCtx.lineWidth = 1.0;
@@ -478,7 +484,7 @@ function renderRoadOptics() {
   const cycleM = 12.0;
   const dashLengthM = 3.0;
   const maxZ = 80.0;
-  const zBottom = Math.max(1.0, (H_CAM * F_OPT) / Math.max(1, (h - horizonPx + 30)));
+  const zBottom = Math.max(1.0, (H_CAM * F_OPT_Y) / Math.max(1, (h - horizonPx + 30)));
   const zExit = Math.max(0.6, zBottom - dashLengthM);
 
   // Phase shift: advances forward with vehicle speed so stripes travel towards driver
@@ -494,13 +500,13 @@ function renderRoadOptics() {
     const clampedZ2 = Math.min(maxZ, z2);
     if (clampedZ2 <= clampedZ1) continue;
 
-    const y1 = horizonPx + (H_CAM * F_OPT) / clampedZ1;
-    const y2 = horizonPx + (H_CAM * F_OPT) / clampedZ2;
+    const y1 = horizonPx + (H_CAM * F_OPT_Y) / clampedZ1;
+    const y2 = horizonPx + (H_CAM * F_OPT_Y) / clampedZ2;
 
     if (y1 <= horizonPx || y2 <= horizonPx) continue;
 
-    const wStripe1 = Math.max(1.2, (stripeWidthM * F_OPT) / clampedZ1);
-    const wStripe2 = Math.max(0.6, (stripeWidthM * F_OPT) / clampedZ2);
+    const wStripe1 = Math.max(1.2, (stripeWidthM * F_OPT_X) / clampedZ1);
+    const wStripe2 = Math.max(0.6, (stripeWidthM * F_OPT_X) / clampedZ2);
 
     // Dynamic atmospheric & bumper exit fade
     const farFade = Math.max(0, Math.min(1.0, (maxZ - clampedZ1) / 25.0));
@@ -510,12 +516,12 @@ function renderRoadOptics() {
     // Left Lane Dash (X = laneLeftM + curvature lateral shift per depth)
     const curveOffL1 = 0.5 * kappa * (clampedZ1 * clampedZ1);
     const curveOffL2 = 0.5 * kappa * (clampedZ2 * clampedZ2);
-    const xL1 = (w / 2) + ((laneLeftM  + curveOffL1) * F_OPT) / clampedZ1;
-    const xL2 = (w / 2) + ((laneLeftM  + curveOffL2) * F_OPT) / clampedZ2;
+    const xL1 = (w / 2) + ((laneLeftM  + curveOffL1) * F_OPT_X) / clampedZ1;
+    const xL2 = (w / 2) + ((laneLeftM  + curveOffL2) * F_OPT_X) / clampedZ2;
 
     // Right Lane Dash (X = laneRightM + curvature)
-    const xR1 = (w / 2) + ((laneRightM + curveOffL1) * F_OPT) / clampedZ1;
-    const xR2 = (w / 2) + ((laneRightM + curveOffL2) * F_OPT) / clampedZ2;
+    const xR1 = (w / 2) + ((laneRightM + curveOffL1) * F_OPT_X) / clampedZ1;
+    const xR2 = (w / 2) + ((laneRightM + curveOffL2) * F_OPT_X) / clampedZ2;
 
 
     // Golden / Yellow luxury palette with active hazard escalation
@@ -609,10 +615,10 @@ function renderRoadOptics() {
   arCtx.font = '600 10.5px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
 
   staticGates.forEach(distM => {
-    const yPx = horizonPx + (H_CAM * F_OPT) / distM;
+    const yPx = horizonPx + (H_CAM * F_OPT_Y) / distM;
     if (yPx > horizonPx + 8 && yPx < h - 12) {
-      const xLeft = (w / 2) + (laneLeftM * F_OPT) / distM;
-      const xRight = (w / 2) + (laneRightM * F_OPT) / distM;
+      const xLeft = (w / 2) + (laneLeftM * F_OPT_X) / distM;
+      const xRight = (w / 2) + (laneRightM * F_OPT_X) / distM;
 
       const isTargetBreached = telemetryState.targetDistanceM <= distM;
       let gateColor = isTargetBreached && isDanger
@@ -628,7 +634,7 @@ function renderRoadOptics() {
       arCtx.stroke();
 
       // Inward depth tick notches
-      const tickH = Math.max(3, (H_CAM * F_OPT * 0.04) / distM);
+      const tickH = Math.max(3, (H_CAM * F_OPT_Y * 0.04) / distM);
       arCtx.beginPath();
       arCtx.moveTo(xLeft, yPx - tickH);
       arCtx.lineTo(xLeft, yPx + tickH);
@@ -668,10 +674,10 @@ function renderRoadOptics() {
   // 3. Dynamic Road Stopping Arc (Physical Braking Limit Horizon)
   const stoppingDistM = telemetryState.stoppingDistanceM;
   if (stoppingDistM > 5 && stoppingDistM < 130) {
-    const stopY = horizonPx + (H_CAM * F_OPT) / stoppingDistM;
+    const stopY = horizonPx + (H_CAM * F_OPT_Y) / stoppingDistM;
     if (stopY > horizonPx + 6 && stopY < h - 10) {
       const isBreached = telemetryState.targetDistanceM <= stoppingDistM;
-      const arcWidth = Math.min(w * 0.70, (3.6 * F_OPT) / stoppingDistM);
+      const arcWidth = Math.min(w * 0.70, (3.6 * F_OPT_X) / stoppingDistM);
       const arcLeft = (w - arcWidth) / 2;
       const arcRight = (w + arcWidth) / 2;
 
