@@ -60,6 +60,13 @@ let navProgressEl  = null;
 let navEtaValueEl  = null;
 let navStatusRowEl = null;
 
+// Spatial Hologram (Horizon Floating Vector Glyph & Bar)
+let spatialHoloEl     = null;
+let spatialGlyphSvgEl = null;
+let spatialDistEl     = null;
+let spatialBarFillEl  = null;
+let spatialStreetEl   = null;
+
 let pendingRoutePoints = null; // Loaded but not yet "started"
 
 // ─── Voice prompter ──────────────────────────────────────────────────────────
@@ -85,34 +92,46 @@ function speak(text) {
   } catch (_) { /* silent fail */ }
 }
 
-// ─── HUD Card Renderer ────────────────────────────────────────────────────────
+// ─── HUD Card & Spatial Hologram Renderer ─────────────────────────────────────
 export function renderNavHud() {
-  if (!navCardEl) return;
-
   const state = telemetryState;
   const { navState, nextManeuverType, nextManeuverDistM, nextManeuverDistDisplay,
           nextStreetName, routeEtaSec, navProgressFraction } = state;
 
   if (navState === 'STANDBY') {
-    navCardEl.classList.remove('nav-active', 'nav-arrived');
+    if (navCardEl) navCardEl.classList.remove('nav-active', 'nav-arrived');
+    if (spatialHoloEl) spatialHoloEl.classList.remove('active');
     return;
   }
 
-  navCardEl.classList.add('nav-active');
+  if (navCardEl) navCardEl.classList.add('nav-active');
 
   // Arrived
   if (navState === 'ARRIVED') {
-    navCardEl.classList.add('nav-arrived');
-    if (navArrowSvgEl)  navArrowSvgEl.innerHTML  = MANEUVER_SVG['ARRIVE'] || '';
-    if (navDistValueEl) navDistValueEl.textContent = 'ARRIVED';
-    if (navDistValueEl) navDistValueEl.className   = 'nav-dist-value dist-turn-now';
-    if (navStreetEl)    navStreetEl.textContent    = nextStreetName || 'DESTINATION';
-    if (navProgressEl)  navProgressEl.style.width  = '100%';
-    if (navEtaValueEl)  navEtaValueEl.textContent  = '—';
+    if (navCardEl) {
+      navCardEl.classList.add('nav-arrived');
+      if (navArrowSvgEl)  navArrowSvgEl.innerHTML  = MANEUVER_SVG['ARRIVE'] || '';
+      if (navDistValueEl) navDistValueEl.textContent = 'ARRIVED';
+      if (navDistValueEl) navDistValueEl.className   = 'nav-dist-value dist-turn-now';
+      if (navStreetEl)    navStreetEl.textContent    = nextStreetName || 'DESTINATION';
+      if (navProgressEl)  navProgressEl.style.width  = '100%';
+      if (navEtaValueEl)  navEtaValueEl.textContent  = '—';
+    }
+
+    if (spatialHoloEl) {
+      spatialHoloEl.classList.add('active');
+      if (spatialGlyphSvgEl) spatialGlyphSvgEl.innerHTML = MANEUVER_SVG['ARRIVE'] || '';
+      if (spatialDistEl) {
+        spatialDistEl.textContent = 'ARRIVED';
+        spatialDistEl.className = 'spatial-dist dist-turn-now';
+      }
+      if (spatialBarFillEl) spatialBarFillEl.style.width = '100%';
+      if (spatialStreetEl) spatialStreetEl.textContent = nextStreetName || 'DESTINATION';
+    }
     return;
   }
 
-  navCardEl.classList.remove('nav-arrived');
+  if (navCardEl) navCardEl.classList.remove('nav-arrived');
 
   // Maneuver SVG
   const maneuverKey = nextManeuverType || 'STRAIGHT';
@@ -165,6 +184,34 @@ export function renderNavHud() {
   // ETA
   if (navEtaValueEl) {
     navEtaValueEl.textContent = fmtEta(routeEtaSec);
+  }
+
+  // Drive Floating Spatial Hologram on Horizon
+  if (spatialHoloEl) {
+    spatialHoloEl.classList.add('active');
+    if (spatialGlyphSvgEl) {
+      spatialGlyphSvgEl.innerHTML = MANEUVER_SVG[maneuverKey] || MANEUVER_SVG['STRAIGHT'];
+    }
+    if (spatialDistEl) {
+      if (state.alertLevel === 'DANGER_COLLISION') {
+        spatialDistEl.textContent = 'BRAKE';
+        spatialDistEl.className = 'spatial-dist hazard-brake';
+      } else if (nextManeuverDistM <= 20) {
+        spatialDistEl.textContent = 'TURN NOW';
+        spatialDistEl.className = 'spatial-dist dist-turn-now';
+      } else {
+        spatialDistEl.textContent = nextManeuverDistDisplay;
+        spatialDistEl.className = 'spatial-dist';
+      }
+    }
+    if (spatialBarFillEl) {
+      // Subconscious hairline progress bar: fills smoothly as approaching within 350m
+      const proximityPct = Math.min(100, Math.max(0, Math.round((1 - (nextManeuverDistM / 350)) * 100)));
+      spatialBarFillEl.style.width = `${proximityPct}%`;
+    }
+    if (spatialStreetEl) {
+      spatialStreetEl.textContent = nextStreetName || (maneuverKey === 'STRAIGHT' ? 'CONTINUE' : '');
+    }
   }
 
   // Voice announce
@@ -252,6 +299,7 @@ function clearRoute() {
     routeCurvatureKappa: 0, navProgressFraction: 0, upcomingTurnDecelRequired: false
   });
   if (navCardEl) navCardEl.classList.remove('nav-active', 'nav-arrived');
+  if (spatialHoloEl) spatialHoloEl.classList.remove('active');
   setStatusRow('NO ROUTE LOADED');
 }
 
@@ -265,6 +313,13 @@ export function initNavControls() {
   navProgressEl  = document.getElementById('nav-progress-fill');
   navEtaValueEl  = document.getElementById('nav-eta-value');
   navStatusRowEl = document.getElementById('nav-status-row');
+
+  // Spatial Hologram
+  spatialHoloEl     = document.getElementById('hud-spatial-hologram');
+  spatialGlyphSvgEl = document.getElementById('spatial-glyph-svg');
+  spatialDistEl     = document.getElementById('spatial-dist');
+  spatialBarFillEl  = document.getElementById('spatial-bar-fill');
+  spatialStreetEl   = document.getElementById('spatial-street');
 
   // ── Preset route selector
   const presetSel = document.getElementById('select-nav-preset');

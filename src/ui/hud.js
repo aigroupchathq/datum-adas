@@ -36,6 +36,48 @@ let ecoBadgeEl = null;
 let arCanvas = null;
 let arCtx = null;
 
+// Header Auto-Fade on Inactivity (Polestar/Lucid Standard: Pure Windshield Immersion)
+let headerFadeTimer = null;
+
+function resetHeaderFadeTimer() {
+  const header = document.querySelector('.hud-header');
+  if (!header) return;
+  header.classList.remove('header-faded');
+  if (headerFadeTimer) clearTimeout(headerFadeTimer);
+  headerFadeTimer = setTimeout(() => {
+    const drawer = document.getElementById('sim-drawer');
+    const drawerOpen = drawer && drawer.classList.contains('open');
+    if (!drawerOpen) {
+      header.classList.add('header-faded');
+    }
+  }, 3500);
+}
+
+function initHeaderAutoFade() {
+  const header = document.querySelector('.hud-header');
+  const viewport = document.getElementById('hud-viewport');
+  if (!viewport || !header) return;
+
+  viewport.addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button, a, input, select, #sim-drawer, .dock-corner-left, .dock-corner-right, #hud-nav-card')) {
+      resetHeaderFadeTimer();
+      return;
+    }
+    if (header.classList.contains('header-faded')) {
+      resetHeaderFadeTimer();
+    } else {
+      header.classList.add('header-faded');
+      if (headerFadeTimer) clearTimeout(headerFadeTimer);
+    }
+  });
+
+  ['pointermove', 'touchstart', 'keydown'].forEach(evt => {
+    window.addEventListener(evt, resetHeaderFadeTimer, { passive: true });
+  });
+
+  resetHeaderFadeTimer();
+}
+
 export function initHud() {
   speedValEl = document.getElementById('hud-speed-val');
   speedStatusEl = document.getElementById('hud-speed-status');
@@ -66,6 +108,8 @@ export function initHud() {
     arCtx = arCanvas.getContext('2d');
   }
 
+  initHeaderAutoFade();
+
   isRunning = true;
   requestAnimationFrame(renderLoop);
 }
@@ -95,6 +139,11 @@ function renderState() {
   // 1. Primary Speed (Large Glanceable Numerals)
   if (speedValEl) {
     speedValEl.textContent = telemetryState.speedMph;
+    if (telemetryState.alertLevel === 'DANGER_COLLISION') {
+      speedValEl.classList.add('hazard-crimson');
+    } else {
+      speedValEl.classList.remove('hazard-crimson');
+    }
   }
 
   if (speedStatusEl) {
@@ -109,6 +158,12 @@ function renderState() {
 
   // 2. Center Forward Path Distance & Physical Uncertainty
   if (targetDistValEl) {
+    if (telemetryState.alertLevel === 'DANGER_COLLISION') {
+      targetDistValEl.classList.add('hazard-crimson');
+    } else {
+      targetDistValEl.classList.remove('hazard-crimson');
+    }
+
     if (telemetryState.targetDistanceM >= 115) {
       targetDistValEl.textContent = 'CLEAR';
     } else {

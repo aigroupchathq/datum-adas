@@ -188,6 +188,14 @@
       -webkit-backdrop-filter: blur(28px) saturate(180%);
       border-radius: 40px;
       border: 0.5px solid var(--surface-border);
+      transition: opacity 0.4s ease, visibility 0.4s ease, transform 0.3s ease;
+    }
+
+    .hud-header.header-faded {
+      opacity: 0 !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+      transform: translateY(-8px);
     }
 
     .brand-group {
@@ -392,31 +400,42 @@
       100% { transform: scale(1.02); filter: brightness(1.25); }
     }
 
-    /* 3. Bottom Instrument Sanctuary (Scandinavian Minimalist Dock) */
+    /* 3. Bottom Instrument Sanctuary: Split-Corner Minimalist Ticks (Polestar/Lucid Aesthetic) */
     .hud-bottom-dock {
-      display: grid;
-      grid-template-columns: 200px 1fr 210px;
-      gap: 16px;
+      display: flex;
+      justify-content: space-between;
       align-items: flex-end;
       padding-bottom: 4px;
+      pointer-events: none;
     }
 
-    .dock-card {
-      background: var(--surface);
+    .dock-corner-left,
+    .dock-corner-right {
+      pointer-events: auto;
+      background: rgba(14, 15, 20, 0.72);
       backdrop-filter: blur(28px) saturate(180%);
       -webkit-backdrop-filter: blur(28px) saturate(180%);
-      border: 0.5px solid var(--surface-border);
+      border: 0.5px solid rgba(255, 255, 255, 0.10);
       border-radius: 20px;
-      padding: 14px 18px;
+      padding: 12px 18px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
     }
 
-    /* Speed Cluster */
-    .speed-card {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
+    .dock-corner-left {
+      min-width: 140px;
     }
 
+    .dock-corner-right {
+      min-width: 160px;
+      text-align: right;
+    }
+
+    .dock-center-gap {
+      flex: 1;
+      pointer-events: none;
+    }
+
+    /* Speed Cluster Left */
     .speed-value-row {
       display: flex;
       align-items: baseline;
@@ -429,6 +448,13 @@
       line-height: 0.82;
       letter-spacing: -3px;
       color: #ffffff;
+      transition: color 0.2s ease, text-shadow 0.2s ease;
+    }
+
+    .speed-digits.hazard-crimson {
+      color: #ff3b30 !important;
+      text-shadow: 0 0 24px rgba(255, 59, 48, 0.95), 0 0 45px rgba(255, 59, 48, 0.6) !important;
+      animation: alertPulse 0.4s infinite alternate ease-in-out;
     }
 
     .speed-unit-col {
@@ -457,7 +483,7 @@
     }
 
     .speed-subtext {
-      font-size: 0.68rem;
+      font-size: 0.64rem;
       font-weight: 500;
       color: var(--text-secondary);
       margin-top: 6px;
@@ -465,71 +491,157 @@
       text-transform: uppercase;
     }
 
-    /* Center Corridor Focus */
-    .center-card {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-    }
-
-    .corridor-lead-row {
+    /* Right Corner Lead & Kinetic Telemetry */
+    .corner-metric-row {
       display: flex;
       align-items: baseline;
+      justify-content: flex-end;
       gap: 8px;
     }
 
-    .corridor-distance {
-      font-size: 2.2rem;
+    .corner-dist-digits {
+      font-size: 1.85rem;
       font-weight: 600;
       letter-spacing: -0.5px;
       color: #ffffff;
+      line-height: 1;
     }
 
-    .corridor-label {
-      font-size: 0.76rem;
-      font-weight: 500;
-      color: var(--text-secondary);
-      letter-spacing: 0.5px;
-    }
-
-    .corridor-sub-row {
-      display: flex;
-      gap: 12px;
-      margin-top: 4px;
-      font-size: 0.72rem;
-      color: var(--text-secondary);
-    }
-
-    /* Right Stopping Matrix */
-    .stopping-card {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .metric-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 0.74rem;
-    }
-
-    .metric-label {
-      color: var(--text-secondary);
-      font-weight: 400;
-    }
-
-    .metric-value {
+    .corner-metric-label {
+      font-size: 0.62rem;
       font-weight: 600;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.8px;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+    }
+
+    .corner-metric-sub {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 6px;
+      margin-top: 6px;
+      font-size: 0.68rem;
+    }
+
+    .stopping-inline {
+      font-weight: 600;
       color: #ffffff;
+    }
+
+    .stopping-sub {
+      color: var(--text-tertiary);
+      font-size: 0.58rem;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .margin-inline {
+      font-weight: 600;
+      font-size: 0.68rem;
     }
 
     .val-safe { color: var(--accent-safe); }
     .val-caution { color: var(--accent-caution); }
     .val-danger { color: var(--accent-danger); }
+
+    /* Floating Spatial Hologram on Horizon (Fighter-Jet / AR Center Reticle) */
+    #hud-spatial-hologram {
+      position: absolute;
+      top: 45%;
+      left: 50%;
+      transform: translate(-50%, -100%);
+      z-index: 15;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      pointer-events: none;
+      text-align: center;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+
+    #hud-spatial-hologram.active {
+      display: flex;
+    }
+
+    .spatial-glyph-box {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      filter: drop-shadow(0 0 12px rgba(255, 209, 89, 0.85));
+    }
+
+    .spatial-glyph-svg {
+      width: 32px;
+      height: 32px;
+      stroke: #ffd159;
+      fill: none;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: stroke 0.2s ease;
+    }
+
+    .spatial-dist {
+      font-size: 1.25rem;
+      font-weight: 300;
+      letter-spacing: -0.5px;
+      color: #ffffff;
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 0 14px rgba(255, 255, 255, 0.7);
+      margin-top: 2px;
+      line-height: 1;
+    }
+
+    .spatial-dist.dist-turn-now {
+      color: #ffd159;
+      font-weight: 700;
+      letter-spacing: 1px;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      animation: alertPulse 0.4s infinite alternate ease-in-out;
+    }
+
+    .spatial-dist.hazard-brake {
+      color: #ff3b30 !important;
+      font-weight: 800;
+      font-size: 1.3rem;
+      letter-spacing: 2px;
+      text-shadow: 0 0 20px #ff3b30;
+      animation: alertPulse 0.3s infinite alternate ease-in-out;
+    }
+
+    .spatial-bar-track {
+      width: 72px;
+      height: 2.5px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 999px;
+      margin: 4px auto 3px auto;
+      overflow: hidden;
+    }
+
+    .spatial-bar-fill {
+      height: 100%;
+      background: #ffd159;
+      box-shadow: 0 0 8px #ffd159;
+      border-radius: 999px;
+      width: 75%;
+      transition: width 0.3s ease;
+    }
+
+    .spatial-street {
+      font-size: 0.60rem;
+      font-weight: 600;
+      letter-spacing: 1.4px;
+      color: rgba(255, 255, 255, 0.8);
+      text-transform: uppercase;
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
 
     /* Calibration & Simulation Drawer (Apple Inset Grouped Sheet) */
     #sim-drawer {
@@ -1201,20 +1313,27 @@
         letter-spacing: 1.5px;
       }
 
-      /* Compact Horizontal Bottom Cluster */
+      /* Compact Split-Corner Minimalist Ticks */
       .hud-bottom-dock {
-        grid-template-columns: 88px 1fr 105px;
-        gap: 8px;
         padding-bottom: 0px;
       }
 
-      .dock-card {
-        padding: 8px 10px;
+      .dock-corner-left,
+      .dock-corner-right {
+        padding: 8px 12px;
         border-radius: 16px;
       }
 
+      .dock-corner-left {
+        min-width: 100px;
+      }
+
+      .dock-corner-right {
+        min-width: 120px;
+      }
+
       .speed-digits {
-        font-size: 2.2rem;
+        font-size: 2.4rem;
       }
 
       .speed-unit-label {
@@ -1231,21 +1350,18 @@
         margin-top: 2px;
       }
 
-      .corridor-distance {
-        font-size: 1.35rem;
+      .corner-dist-digits {
+        font-size: 1.4rem;
       }
 
-      .corridor-label {
+      .corner-metric-label {
+        font-size: 0.54rem;
+      }
+
+      .corner-metric-sub {
         font-size: 0.58rem;
-      }
-
-      .corridor-sub-row {
-        font-size: 0.56rem;
+        gap: 4px;
         margin-top: 2px;
-      }
-
-      .metric-row {
-        font-size: 0.60rem;
       }
     }
 
@@ -1507,6 +1623,21 @@
       <canvas id="ar-overlay-canvas"></canvas>
     </div>
 
+    <!-- Floating Spatial Hologram on Horizon (Fighter-Jet / AR Center Reticle) -->
+    <div id="hud-spatial-hologram" aria-hidden="true">
+      <div class="spatial-glyph-box">
+        <svg id="spatial-glyph-svg" class="spatial-glyph-svg" viewBox="0 0 44 44">
+          <line x1="22" y1="36" x2="22" y2="8"/>
+          <polyline points="14,16 22,8 30,16"/>
+        </svg>
+      </div>
+      <div id="spatial-dist" class="spatial-dist">—</div>
+      <div class="spatial-bar-track">
+        <div id="spatial-bar-fill" class="spatial-bar-fill"></div>
+      </div>
+      <div id="spatial-street" class="spatial-street">ROUTE ACTIVE</div>
+    </div>
+
     <!-- Navigation Turn-by-Turn Side Card (shown only when route active) -->
     <div id="hud-nav-card" role="navigation" aria-label="Turn guidance">
       <!-- Maneuver glyph -->
@@ -1587,44 +1718,35 @@
       </div>
     </div>
 
-    <!-- 3. Bottom Instrument Sanctuary -->
+    <!-- 3. Bottom Instrument Sanctuary: Split-Corner Minimalist Ticks (Polestar/Lucid Aesthetic) -->
     <footer class="hud-bottom-dock">
-      <!-- Left: Speed -->
-      <div class="dock-card speed-card">
+      <!-- Left Corner: Speed & Ground GNSS Status -->
+      <div class="dock-corner-left">
         <div class="speed-value-row">
           <div id="hud-speed-val" class="speed-digits">0</div>
           <div class="speed-unit-col">
             <span class="speed-unit-label">MPH</span>
-            <span id="hud-speed-status" class="speed-source-tag tag-verified">● VERIFIED</span>
+            <span id="hud-speed-status" class="speed-source-tag tag-verified">● GNSS</span>
           </div>
         </div>
         <div class="speed-subtext">GROUND SPEED</div>
       </div>
 
-      <!-- Center: Lead Corridor Focus -->
-      <div class="dock-card center-card">
-        <div class="corridor-lead-row">
-          <div id="hud-target-dist" class="corridor-distance">CLEAR</div>
-          <div class="corridor-label">FORWARD PATH</div>
-        </div>
-        <div class="corridor-sub-row">
-          <span id="hud-road-status-text">DRY ASPHALT • TRACTION OPTIMAL</span>
-        </div>
-      </div>
+      <!-- Center Gap: Pure Open Road Floor for 3D Golden Corridor -->
+      <div class="dock-center-gap"></div>
 
-      <!-- Right: Stopping Matrix -->
-      <div class="dock-card stopping-card">
-        <div class="metric-row">
-          <span class="metric-label">Stopping Envelope</span>
-          <span id="hud-stopping-dist" class="metric-value">0m</span>
+      <!-- Right Corner: Lead Vehicle & Stopping Headroom Matrix -->
+      <div class="dock-corner-right">
+        <div class="corner-metric-row">
+          <div id="hud-target-dist" class="corner-dist-digits">CLEAR</div>
+          <span class="corner-metric-label">LEAD</span>
         </div>
-        <div class="metric-row">
-          <span class="metric-label">Safety Buffer</span>
-          <span id="hud-safety-margin" class="metric-value val-safe">+120m SAFE</span>
-        </div>
-        <div class="metric-row">
-          <span class="metric-label">Impact Risk (TTC)</span>
-          <span id="hud-ttc" class="metric-value">STABLE</span>
+        <div class="corner-metric-sub">
+          <span class="stopping-sub">STOP</span>
+          <span id="hud-stopping-dist" class="stopping-inline">0m</span>
+          <span id="hud-safety-margin" class="margin-inline val-safe">+120m</span>
+          <span id="hud-ttc" style="display:none;">STABLE</span>
+          <span id="hud-road-status-text" style="display:none;">DRY ASPHALT</span>
         </div>
       </div>
     </footer>
