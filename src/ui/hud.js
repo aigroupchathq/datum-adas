@@ -136,7 +136,7 @@ function renderLoop() {
 }
 
 function renderState() {
-  // 1. Primary Speed (Large Glanceable Numerals)
+  // 1. Primary Speed (Large Glanceable Numerals with Deadband Latching)
   if (speedValEl) {
     speedValEl.textContent = telemetryState.speedMph;
     if (telemetryState.alertLevel === 'DANGER_COLLISION') {
@@ -156,7 +156,7 @@ function renderState() {
     }
   }
 
-  // 2. Center Forward Path Distance & Physical Uncertainty
+  // 2. Center Forward Path Distance (Clean Integer with Latching Hysteresis)
   if (targetDistValEl) {
     if (telemetryState.alertLevel === 'DANGER_COLLISION') {
       targetDistValEl.classList.add('hazard-crimson');
@@ -167,12 +167,11 @@ function renderState() {
     if (telemetryState.targetDistanceM >= 115) {
       targetDistValEl.textContent = 'CLEAR';
     } else {
-      const err = telemetryState.opticalUncertaintyM > 0.4 ? ` ±${telemetryState.opticalUncertaintyM}m` : '';
-      targetDistValEl.textContent = `${telemetryState.targetDistanceM}m${err}`;
+      targetDistValEl.textContent = `${telemetryState.targetDistanceM}m`;
     }
   }
 
-  // 3. Human-Centric Road Surface Intelligence (Actionable, No Jargon)
+  // 3. Human-Centric Road Surface Intelligence (Stoic, Non-Noisy)
   if (roadStatusTextEl) {
     switch (telemetryState.roadCondition) {
       case 'FOG_HAZE':
@@ -188,7 +187,7 @@ function renderState() {
         roadStatusTextEl.style.color = 'rgba(255, 255, 255, 0.7)';
         break;
       default:
-        roadStatusTextEl.textContent = `DRY ASPHALT • TRACTION OPTIMAL`;
+        roadStatusTextEl.textContent = `DRY ROAD • OPTIMAL TRACTION`;
         roadStatusTextEl.style.color = 'rgba(255, 255, 255, 0.6)';
         break;
     }
@@ -208,7 +207,7 @@ function renderState() {
       safetyMarginValEl.textContent = `+${margin}m CLOSE`;
       safetyMarginValEl.className = 'metric-value val-caution';
     } else {
-      safetyMarginValEl.textContent = `${margin}m BREACH!`;
+      safetyMarginValEl.textContent = `${margin}m CRITICAL`;
       safetyMarginValEl.className = 'metric-value val-danger';
     }
   }
@@ -306,7 +305,13 @@ function renderState() {
         alertMessageEl.textContent = `REDUCE SPEED — SIGHTLINE RESTRICTED (${telemetryState.visibilityRangeM}m)`;
         break;
       case 'CAUTION':
-        alertMessageEl.textContent = `CLOSING SENSITIVITY ACTIVE`;
+        if (telemetryState.targetBrakeLightsDetected) {
+          alertMessageEl.textContent = `LEAD VEHICLE BRAKING`;
+        } else if (telemetryState.targetClosingSpeedMph > 5) {
+          alertMessageEl.textContent = `HEADWAY ALERT — CLOSING`;
+        } else {
+          alertMessageEl.textContent = `HEADWAY CAUTION`;
+        }
         break;
       default:
         if (telemetryState.ldwState === 'DEPARTURE_LEFT') {
@@ -748,8 +753,7 @@ function renderRoadOptics() {
     arCtx.stroke();
 
     // Apple Spatial Floating Glass Target Pill
-    const errText = telemetryState.opticalUncertaintyM > 0.4 ? ` ±${telemetryState.opticalUncertaintyM}m` : '';
-    const badgeText = `${telemetryState.targetDistanceM}m${errText}`;
+    const badgeText = `${telemetryState.targetDistanceM}m`;
     arCtx.font = '600 11px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
     const textW = arCtx.measureText(badgeText).width;
     const badgeW = textW + 14;
