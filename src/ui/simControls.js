@@ -6,6 +6,7 @@
 import { telemetryState } from '../state.js';
 import { toggleAudioMute } from './audioAlerts.js';
 import { generateTripReceipt } from '../engines/ecoEngine.js';
+import { setSpeedUnit } from './hud.js';
 
 const MPH_TO_MPS = 0.44704;
 
@@ -60,11 +61,19 @@ export function initSimControls() {
   // Slider inputs
   if (speedSlider) {
     speedSlider.addEventListener('input', (e) => {
-      const mph = parseInt(e.target.value, 10);
-      if (speedValText) speedValText.textContent = `${mph} mph`;
+      const val = parseInt(e.target.value, 10);
+      const isKmh = telemetryState.speedUnit === 'KMH';
+      if (speedValText) speedValText.textContent = isKmh ? `${val} km/h` : `${val} mph`;
       if (telemetryState.isSimMode) {
-        telemetryState.speedMph = mph;
-        telemetryState.speedMps = mph * MPH_TO_MPS;
+        if (isKmh) {
+          telemetryState.speedKmh = val;
+          telemetryState.speedMps = val / 3.6;
+          telemetryState.speedMph = Math.round(val * 0.621371);
+        } else {
+          telemetryState.speedMph = val;
+          telemetryState.speedMps = val * MPH_TO_MPS;
+          telemetryState.speedKmh = Math.round(val * 1.60934);
+        }
       }
     });
   }
@@ -133,6 +142,20 @@ export function initSimControls() {
   if (powertrainSelect) {
     powertrainSelect.addEventListener('change', (e) => {
       telemetryState.powertrain = e.target.value;
+    });
+  }
+
+  // Speed & Metric Units Configuration
+  const speedUnitSelect = document.getElementById('select-speed-unit');
+  if (speedUnitSelect) {
+    speedUnitSelect.value = telemetryState.speedUnit || 'KMH';
+    speedUnitSelect.addEventListener('change', (e) => {
+      setSpeedUnit(e.target.value);
+      if (speedValText && speedSlider) {
+        const isKmh = e.target.value === 'KMH';
+        const val = parseInt(speedSlider.value, 10);
+        speedValText.textContent = isKmh ? `${val} km/h` : `${val} mph`;
+      }
     });
   }
 
@@ -344,17 +367,20 @@ export function initSimControls() {
   }
 
   function setSimValues(speedMph, distM, visPct, condition) {
-    if (speedSlider) speedSlider.value = speedMph;
+    const isKmh = telemetryState.speedUnit === 'KMH';
+    const displaySpeed = isKmh ? Math.round(speedMph * 1.60934) : speedMph;
+    if (speedSlider) speedSlider.value = displaySpeed;
     if (distSlider) distSlider.value = distM;
     if (visSlider) visSlider.value = visPct;
     if (condSelect) condSelect.value = condition;
 
-    if (speedValText) speedValText.textContent = `${speedMph} mph`;
+    if (speedValText) speedValText.textContent = `${displaySpeed} ${isKmh ? 'km/h' : 'mph'}`;
     if (distValText) distValText.textContent = `${distM} m`;
     if (visValText) visValText.textContent = `${visPct} %`;
 
     telemetryState.speedMph = speedMph;
     telemetryState.speedMps = speedMph * MPH_TO_MPS;
+    telemetryState.speedKmh = Math.round(speedMph * 1.60934);
     telemetryState.targetDistanceM = distM;
     telemetryState.visibilityPct = visPct;
     telemetryState.visibilityRangeM = Math.round((visPct / 100) * 250);

@@ -473,6 +473,23 @@
       font-weight: 700;
       letter-spacing: 1.2px;
       color: rgba(255, 255, 255, 0.88);
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      padding: 1px 5px;
+      margin-left: -5px;
+      border-radius: 4px;
+      transition: all 0.15s ease;
+    }
+
+    .speed-unit-label:hover {
+      background: rgba(255, 255, 255, 0.14);
+      color: var(--accent-gold);
+    }
+
+    .speed-unit-label:active {
+      transform: scale(0.92);
+      background: rgba(255, 209, 89, 0.22);
     }
 
     .speed-source-tag {
@@ -1878,9 +1895,9 @@
       <!-- Left Corner: Speed & Ground GNSS Status -->
       <div class="dock-corner-left">
         <div class="speed-value-row">
-          <div id="hud-speed-val" class="speed-digits">0</div>
+          <div id="hud-speed-val" class="speed-digits" style="cursor: pointer;" title="Tap to switch KM/H or MPH">0</div>
           <div class="speed-unit-col">
-            <span class="speed-unit-label">MPH</span>
+            <span id="hud-speed-unit" class="speed-unit-label" title="Tap to switch KM/H or MPH">KM/H</span>
             <span id="hud-speed-status" class="speed-source-tag tag-verified">● GNSS</span>
           </div>
         </div>
@@ -1969,6 +1986,14 @@
             <option value="ICE">Gasoline / Diesel (ICE)</option>
             <option value="HYBRID">Hybrid Electric (HEV/PHEV)</option>
             <option value="EV">Battery Electric (BEV)</option>
+          </select>
+        </div>
+
+        <div class="select-item">
+          <label class="select-label" for="select-speed-unit">Speed & Metric Units</label>
+          <select id="select-speed-unit" class="apple-select">
+            <option value="KMH">Metric — KM/H (International)</option>
+            <option value="MPH">Imperial — MPH (US / UK)</option>
           </select>
         </div>
 

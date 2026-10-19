@@ -3,6 +3,21 @@
  * High-precision, zero-allocation schema for life-critical automotive avionics.
  */
 
+function getInitialSpeedUnit() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('datum_speed_unit');
+      if (saved === 'KMH' || saved === 'MPH') return saved;
+    }
+    if (typeof navigator !== 'undefined' && navigator.language) {
+      if (navigator.language === 'en-US') return 'MPH';
+    }
+  } catch (e) {}
+  return 'KMH'; // Metric default for global automotive standard
+}
+
+const initialSpeedUnit = getInitialSpeedUnit();
+
 export const telemetryState = {
   isRunning: false,
   isSimMode: false,
@@ -33,6 +48,8 @@ export const telemetryState = {
   // GPS & Kinematic Truth Layer (1 Hz Satellite GNSS)
   speedMps: 0,
   speedMph: 0,
+  speedKmh: 0,
+  speedUnit: initialSpeedUnit, // 'KMH' (km/h) | 'MPH' (mph)
   lat: null,
   lon: null,
   gpsAccuracyM: null,
@@ -108,7 +125,7 @@ export const telemetryState = {
   routeCurvatureKappa: 0,         // Signed curvature κ for 3D AR corridor bending (+right, -left)
   navProgressFraction: 0,         // Route progress 0.0 → 1.0
   upcomingTurnDecelRequired: false, // Arms eco-pacing COAST signal 200m before sharp turns
-  navImperial: false,             // True = miles/feet display
+  navImperial: initialSpeedUnit === 'MPH', // True = miles/feet display, False = km/metres
   navVoiceEnabled: false,         // Browser Web Speech API voice prompter
 };
 

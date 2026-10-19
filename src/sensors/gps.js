@@ -98,6 +98,7 @@ function onGpsSuccess(position) {
       lastGpsSpeedMps = candidateSpeed;
       telemetryState.speedMps = candidateSpeed;
       telemetryState.speedMph = Math.round(candidateSpeed * MPS_TO_MPH);
+      telemetryState.speedKmh = Math.round(candidateSpeed * 3.6);
     }
 
     lastLat = coords.latitude;

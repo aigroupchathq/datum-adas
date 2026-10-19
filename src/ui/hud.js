@@ -16,8 +16,35 @@ let isRunning = false;
 
 // DOM Elements
 let speedValEl = null;
+let speedUnitLabelEl = null;
 let speedStatusEl = null;
 let targetDistValEl = null;
+
+export function setSpeedUnit(unit) {
+  const normalized = (unit === 'KMH' || unit === 'KM' || unit === 'km/h') ? 'KMH' : 'MPH';
+  telemetryState.speedUnit = normalized;
+  telemetryState.navImperial = (normalized === 'MPH');
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('datum_speed_unit', normalized);
+    }
+  } catch (e) {}
+
+  if (typeof document !== 'undefined') {
+    const selectEl = document.getElementById('select-speed-unit');
+    if (selectEl && selectEl.value !== normalized) {
+      selectEl.value = normalized;
+    }
+    if (speedUnitLabelEl) {
+      speedUnitLabelEl.textContent = normalized === 'KMH' ? 'KM/H' : 'MPH';
+    }
+  }
+}
+
+export function toggleSpeedUnit() {
+  const next = telemetryState.speedUnit === 'KMH' ? 'MPH' : 'KMH';
+  setSpeedUnit(next);
+}
 let stoppingDistValEl = null;
 let safetyMarginValEl = null;
 let ttcValEl = null;
@@ -80,6 +107,16 @@ function initHeaderAutoFade() {
 
 export function initHud() {
   speedValEl = document.getElementById('hud-speed-val');
+  speedUnitLabelEl = document.getElementById('hud-speed-unit');
+  if (speedUnitLabelEl) {
+    speedUnitLabelEl.addEventListener('click', toggleSpeedUnit);
+    speedUnitLabelEl.textContent = telemetryState.speedUnit === 'KMH' ? 'KM/H' : 'MPH';
+  }
+  if (speedValEl) {
+    speedValEl.addEventListener('click', toggleSpeedUnit);
+    speedValEl.style.cursor = 'pointer';
+    speedValEl.title = 'Tap to switch KM/H or MPH';
+  }
   speedStatusEl = document.getElementById('hud-speed-status');
   targetDistValEl = document.getElementById('hud-target-dist');
   stoppingDistValEl = document.getElementById('hud-stopping-dist');
@@ -136,14 +173,23 @@ function renderLoop() {
 }
 
 function renderState() {
+  const isKmh = telemetryState.speedUnit === 'KMH';
+  const currentSpeed = isKmh
+    ? (typeof telemetryState.speedKmh === 'number' && telemetryState.speedKmh > 0 ? telemetryState.speedKmh : Math.round((telemetryState.speedMps || 0) * 3.6))
+    : (typeof telemetryState.speedMph === 'number' && telemetryState.speedMph > 0 ? telemetryState.speedMph : Math.round((telemetryState.speedMps || 0) * 2.23694));
+
   // 1. Primary Speed (Large Glanceable Numerals with Deadband Latching)
   if (speedValEl) {
-    speedValEl.textContent = telemetryState.speedMph;
+    speedValEl.textContent = currentSpeed;
     if (telemetryState.alertLevel === 'DANGER_COLLISION') {
       speedValEl.classList.add('hazard-crimson');
     } else {
       speedValEl.classList.remove('hazard-crimson');
     }
+  }
+
+  if (speedUnitLabelEl) {
+    speedUnitLabelEl.textContent = isKmh ? 'KM/H' : 'MPH';
   }
 
   if (speedStatusEl) {
@@ -213,7 +259,7 @@ function renderState() {
   }
 
   if (ttcValEl) {
-    if (telemetryState.timeToCollisionSec >= 99 || telemetryState.speedMph < 3) {
+    if (telemetryState.timeToCollisionSec >= 99 || (telemetryState.speedMps || 0) < 1.34) {
       ttcValEl.textContent = 'STABLE';
       ttcValEl.className = 'metric-value';
     } else if (telemetryState.timeToCollisionSec < 2.5) {
@@ -227,12 +273,14 @@ function renderState() {
 
   // 5. Closing Speed Delta Vector
   if (closingSpeedEl) {
-    const cv = telemetryState.targetClosingSpeedMph;
-    if (cv > 2) {
-      closingSpeedEl.textContent = `Δv +${cv} mph CLOSING`;
+    const cvMph = telemetryState.targetClosingSpeedMph || 0;
+    const cvVal = isKmh ? Math.round(cvMph * 1.60934) : cvMph;
+    const unitLabel = isKmh ? 'km/h' : 'mph';
+    if (cvMph > 2) {
+      closingSpeedEl.textContent = `Δv +${cvVal} ${unitLabel} CLOSING`;
       closingSpeedEl.className = 'pill-chip pill-warn';
     } else {
-      closingSpeedEl.textContent = 'Δv 0 mph STABLE';
+      closingSpeedEl.textContent = `Δv 0 ${unitLabel} STABLE`;
       closingSpeedEl.className = 'pill-chip';
     }
   }
@@ -344,7 +392,9 @@ function renderState() {
     const dollars = (typeof telemetryState.tripDollarsSaved === 'number' && telemetryState.tripDollarsSaved > 0)
       ? ` • +$${telemetryState.tripDollarsSaved.toFixed(2)}`
       : '';
-    const unit = telemetryState.powertrain === 'EV' ? 'mi/kWh' : 'MPG';
+    const unit = telemetryState.powertrain === 'EV'
+      ? (isKmh ? 'km/kWh' : 'mi/kWh')
+      : (isKmh ? 'km/L' : 'MPG');
     ecoBadgeEl.textContent = `ECO ${score}% (+${gain}% ${unit}${dollars})`;
 
     if (score >= 90) {
