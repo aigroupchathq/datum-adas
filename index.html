@@ -326,6 +326,46 @@
       box-shadow: 0 0 6px rgba(48, 209, 88, 0.85);
     }
 
+    /* Segmented Speed Unit Control (KM/H vs MPH) */
+    .unit-segmented-control {
+      display: inline-flex;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.05);
+      border: 0.5px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      padding: 2px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .unit-segment {
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .unit-segment:hover {
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    .unit-segment.active {
+      background: rgba(255, 209, 89, 0.18);
+      border: 0.5px solid rgba(255, 209, 89, 0.45);
+      color: var(--accent-gold);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+    }
+
     .btn-portrait-toggle {
       display: none !important;
     }
@@ -1862,6 +1902,10 @@
       </div>
 
       <div class="controls-group">
+        <div class="unit-segmented-control btn-landscape-toggle" title="Toggle Speed Units (KM/H or MPH)">
+          <button id="btn-header-unit-kmh" class="unit-segment active" title="Switch to Metric (KM/H)">KM/H</button>
+          <button id="btn-header-unit-mph" class="unit-segment" title="Switch to Imperial (MPH)">MPH</button>
+        </div>
         <button id="btn-portrait-menu" class="cockpit-toggle btn-portrait-toggle" title="Cockpit Settings & Calibration">
           <svg class="toggle-svg" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/></svg>
           <span class="toggle-text">MENU</span>
@@ -1942,14 +1986,18 @@
 
     <!-- Quick Cockpit Toggles for Mobile/Portrait -->
     <div class="drawer-section" style="padding-bottom: 8px;">
-      <div class="section-heading">Cockpit Projection & Audio</div>
-      <div style="display: flex; gap: 10px; margin-top: 6px;">
-        <button id="btn-drawer-mirror-toggle" class="cockpit-toggle" style="flex: 1; justify-content: center; padding: 10px 14px;" title="Windshield Projection HUD Mode">
+      <div class="section-heading">Cockpit Units, Projection & Audio</div>
+      <div style="display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+        <div class="unit-segmented-control" style="flex: 1 1 100%; justify-content: center; padding: 3px;" title="Select Speed Units">
+          <button id="btn-drawer-unit-kmh" class="unit-segment active" style="flex: 1; text-align: center; padding: 8px 12px; font-size: 0.72rem;">KM/H (METRIC)</button>
+          <button id="btn-drawer-unit-mph" class="unit-segment" style="flex: 1; text-align: center; padding: 8px 12px; font-size: 0.72rem;">MPH (IMPERIAL)</button>
+        </div>
+        <button id="btn-drawer-mirror-toggle" class="cockpit-toggle" style="flex: 1 1 130px; justify-content: center; padding: 10px 14px;" title="Windshield Projection HUD Mode">
           <svg class="toggle-svg" viewBox="0 0 24 24"><path d="M4 14h16M2 9h20M7 19h10M12 4v3"/></svg>
           <span class="toggle-text">HUD MODE</span>
           <span class="toggle-led" id="led-mirror-drawer"></span>
         </button>
-        <button id="btn-drawer-mute-toggle" class="cockpit-toggle active" style="flex: 1; justify-content: center; padding: 10px 14px;" title="Audio Klaxon Warning">
+        <button id="btn-drawer-mute-toggle" class="cockpit-toggle active" style="flex: 1 1 130px; justify-content: center; padding: 10px 14px;" title="Audio Klaxon Warning">
           <svg class="toggle-svg" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
           <span class="toggle-text">AUDIO ALERTS</span>
           <span class="toggle-led led-active" id="led-sound-drawer"></span>
