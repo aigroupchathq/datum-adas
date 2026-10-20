@@ -366,6 +366,180 @@
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     }
 
+    /* Replay Floating Control Bar (comma.ai harness standard) */
+    #hud-replay-bar {
+      position: absolute;
+      top: 76px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      pointer-events: auto;
+    }
+
+    .replay-bar-glass {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(10, 12, 16, 0.88);
+      border: 0.5px solid rgba(255, 209, 89, 0.45);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border-radius: 999px;
+      padding: 6px 14px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 14px rgba(255, 209, 89, 0.15);
+    }
+
+    .replay-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 0.5px solid rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .replay-btn:hover {
+      background: rgba(255, 209, 89, 0.2);
+      border-color: rgba(255, 209, 89, 0.5);
+      color: var(--accent-gold);
+    }
+
+    .replay-play-btn {
+      background: rgba(48, 209, 88, 0.15);
+      border-color: rgba(48, 209, 88, 0.4);
+      color: #30d158;
+    }
+
+    .replay-close-btn {
+      background: rgba(255, 59, 48, 0.15);
+      border-color: rgba(255, 59, 48, 0.4);
+      color: #ff453a;
+    }
+
+    .replay-scrub {
+      width: 140px;
+      accent-color: var(--accent-gold);
+      cursor: pointer;
+    }
+
+    .replay-time {
+      font-family: monospace;
+      font-size: 0.68rem;
+      color: rgba(255, 255, 255, 0.7);
+      min-width: 70px;
+      text-align: center;
+    }
+
+    .replay-title {
+      font-family: monospace;
+      font-size: 0.62rem;
+      color: rgba(255, 209, 89, 0.85);
+      background: rgba(0, 0, 0, 0.6);
+      padding: 2px 8px;
+      border-radius: 6px;
+      border: 0.5px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* CIPV Developer Telemetry State Vector HUD Overlay */
+    .dev-telemetry-card {
+      position: absolute;
+      top: 76px;
+      left: 16px;
+      width: 300px;
+      max-width: 88vw;
+      background: rgba(8, 10, 14, 0.88);
+      border: 0.5px solid rgba(48, 209, 88, 0.45);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-radius: 14px;
+      padding: 10px 12px;
+      z-index: 90;
+      pointer-events: auto;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.6);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Mono", Menlo, Consolas, monospace;
+      font-size: 0.64rem;
+      color: #ffffff;
+      user-select: text;
+      -webkit-user-select: text;
+    }
+
+    .dev-telemetry-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 0.5px solid rgba(255, 255, 255, 0.12);
+      padding-bottom: 5px;
+      margin-bottom: 6px;
+    }
+
+    .dev-telemetry-title {
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      color: #30d158;
+    }
+
+    .dev-telemetry-tag {
+      font-size: 0.58rem;
+      font-weight: 600;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .tag-replay {
+      background: rgba(255, 209, 89, 0.2);
+      color: #ffd159;
+      border: 0.5px solid rgba(255, 209, 89, 0.4);
+    }
+
+    .tag-live {
+      background: rgba(48, 209, 88, 0.2);
+      color: #30d158;
+      border: 0.5px solid rgba(48, 209, 88, 0.4);
+    }
+
+    .dev-telemetry-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .dev-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      line-height: 1.3;
+    }
+
+    .dev-lbl {
+      color: rgba(255, 255, 255, 0.55);
+    }
+
+    .dev-val {
+      color: rgba(255, 255, 255, 0.92);
+      font-weight: 500;
+    }
+
+    .dev-val.highlight {
+      color: #ffd159;
+    }
+
+    .val-danger {
+      color: #ff453a !important;
+    }
+
+    .val-safe {
+      color: #30d158 !important;
+    }
+
     .btn-portrait-toggle {
       display: none !important;
     }
@@ -1902,10 +2076,19 @@
       </div>
 
       <div class="controls-group">
+        <input type="file" id="input-replay-file" accept="video/mp4,video/webm,video/quicktime,video/*" style="display:none">
         <div class="unit-segmented-control btn-landscape-toggle" title="Toggle Speed Units (KM/H or MPH)">
           <button id="btn-header-unit-kmh" class="unit-segment active" title="Switch to Metric (KM/H)">KM/H</button>
           <button id="btn-header-unit-mph" class="unit-segment" title="Switch to Imperial (MPH)">MPH</button>
         </div>
+        <button id="btn-header-replay" class="cockpit-toggle btn-landscape-toggle" title="Replay Local Dashcam Video (.mp4 / .webm)">
+          <svg class="toggle-svg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span class="toggle-text">REPLAY</span>
+        </button>
+        <button id="btn-header-dev-telemetry" class="cockpit-toggle btn-landscape-toggle" title="Toggle Developer CIPV State Vector Inspector (Hotkey: D)">
+          <svg class="toggle-svg" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          <span class="toggle-text">DEV HUD</span>
+        </button>
         <button id="btn-portrait-menu" class="cockpit-toggle btn-portrait-toggle" title="Cockpit Settings & Calibration">
           <svg class="toggle-svg" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="18" cy="12" r="1.8"/></svg>
           <span class="toggle-text">MENU</span>
@@ -1926,6 +2109,22 @@
         </button>
       </div>
     </header>
+
+    <!-- Deterministic Replay Control Bar (comma.ai harness standard) -->
+    <div id="hud-replay-bar" class="hidden" role="toolbar" aria-label="Replay Controls">
+      <div class="replay-bar-glass">
+        <button id="btn-replay-play" class="replay-btn replay-play-btn" title="Play / Pause Replay">PAUSE</button>
+        <button id="btn-replay-step" class="replay-btn" title="Step +1 Frame (+100ms)">STEP +1</button>
+        <button id="btn-replay-rate" class="replay-btn" title="Cycle Speed (0.25x / 0.5x / 1.0x)">1.0x</button>
+        <input type="range" id="replay-scrub-slider" class="replay-scrub" min="0" max="100" step="0.1" value="0">
+        <span id="replay-time-display" class="replay-time">0:00 / 0:00</span>
+        <button id="btn-replay-close" class="replay-btn replay-close-btn" title="Exit Replay Mode">EXIT</button>
+      </div>
+      <div id="replay-file-title" class="replay-title">dashcam_recording.mp4</div>
+    </div>
+
+    <!-- Developer Telemetry State Vector Inspector (CIPV Monospaced Card) -->
+    <div id="hud-dev-telemetry-overlay" class="dev-telemetry-card hidden" role="region" aria-label="CIPV State Vector"></div>
 
     <!-- 2. Dynamic Alert Ribbon (Hidden during normal driving) -->
     <div class="alert-ribbon-container">
@@ -2002,6 +2201,14 @@
           <span class="toggle-text">AUDIO ALERTS</span>
           <span class="toggle-led led-active" id="led-sound-drawer"></span>
         </button>
+        <button id="btn-drawer-replay" class="cockpit-toggle" style="flex: 1 1 130px; justify-content: center; padding: 10px 14px;" title="Replay Local Dashcam Video">
+          <svg class="toggle-svg" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          <span class="toggle-text">REPLAY VIDEO</span>
+        </button>
+        <button id="btn-drawer-dev-telemetry" class="cockpit-toggle" style="flex: 1 1 130px; justify-content: center; padding: 10px 14px;" title="Toggle Developer CIPV State Vector">
+          <svg class="toggle-svg" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          <span class="toggle-text">DEV HUD</span>
+        </button>
       </div>
     </div>
 
@@ -2043,6 +2250,24 @@
             <option value="KMH">Metric — KM/H (International)</option>
             <option value="MPH">Imperial — MPH (US / UK)</option>
           </select>
+        </div>
+
+        <div class="select-item" style="grid-column: 1 / -1; margin-top: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="select-label" for="slider-horizon-height" style="margin-bottom: 0;">Vanishing Horizon Row (y_horizon)</label>
+            <span id="val-horizon-height" style="font-family: monospace; font-size: 0.76rem; color: #30d158; font-weight: 600;">54 px</span>
+          </div>
+          <input type="range" id="slider-horizon-height" min="20" max="90" value="54" style="width: 100%; accent-color: #30d158;">
+          <div style="font-size: 0.65rem; color: rgba(255,255,255,0.45); margin-top: 2px;">Aligns dashed green line to road vanishing point. Prevents lines in the sky.</div>
+        </div>
+
+        <div class="select-item" style="grid-column: 1 / -1; margin-top: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="select-label" for="slider-hood-cutoff" style="margin-bottom: 0;">Vehicle Hood Cutoff Mask (y_hood)</label>
+            <span id="val-hood-cutoff" style="font-family: monospace; font-size: 0.76rem; color: #ffd159; font-weight: 600;">98 px</span>
+          </div>
+          <input type="range" id="slider-hood-cutoff" min="60" max="118" value="98" style="width: 100%; accent-color: #ffd159;">
+          <div style="font-size: 0.65rem; color: rgba(255,255,255,0.45); margin-top: 2px;">Aligns dashed gold line to windshield wiper/hood edge. Eliminates false wiper self-detection.</div>
         </div>
 
         <div class="select-item" style="grid-column: 1 / -1; margin-top: 4px;">

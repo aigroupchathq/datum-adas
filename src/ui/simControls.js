@@ -6,7 +6,7 @@
 import { telemetryState } from '../state.js';
 import { toggleAudioMute } from './audioAlerts.js';
 import { generateTripReceipt } from '../engines/ecoEngine.js';
-import { setSpeedUnit } from './hud.js';
+import { setSpeedUnit, setHorizonY, setHoodCutoffY } from './hud.js';
 
 const MPH_TO_MPS = 0.44704;
 
@@ -156,6 +156,31 @@ export function initSimControls() {
         const val = parseInt(speedSlider.value, 10);
         speedValText.textContent = isKmh ? `${val} km/h` : `${val} mph`;
       }
+    });
+  }
+
+  // Optical Geometry & Calibration: Horizon Height & Vehicle Hood Cutoff
+  const horizonSlider = document.getElementById('slider-horizon-height');
+  const horizonValText = document.getElementById('val-horizon-height');
+  if (horizonSlider) {
+    horizonSlider.value = telemetryState.horizonY;
+    if (horizonValText) horizonValText.textContent = `${telemetryState.horizonY} px`;
+    horizonSlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      if (horizonValText) horizonValText.textContent = `${val} px`;
+      setHorizonY(val);
+    });
+  }
+
+  const hoodSlider = document.getElementById('slider-hood-cutoff');
+  const hoodValText = document.getElementById('val-hood-cutoff');
+  if (hoodSlider) {
+    hoodSlider.value = telemetryState.hoodCutoffY;
+    if (hoodValText) hoodValText.textContent = `${telemetryState.hoodCutoffY} px`;
+    hoodSlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      if (hoodValText) hoodValText.textContent = `${val} px`;
+      setHoodCutoffY(val);
     });
   }
 

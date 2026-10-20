@@ -22,6 +22,7 @@ self.onmessage = function(event) {
     const visionOutputs = analyzeFrame(pixels, width, height, {
       cameraHeightM: options.cameraHeightM,
       horizonY: options.horizonY,
+      hoodCutoffY: options.hoodCutoffY,
       timestamp: options.timestamp
     });
 

@@ -9,12 +9,16 @@
 const FOCAL_LENGTH_Y_PX = 115;
 const MPS_TO_MPH = 2.23694;
 
-// Historical tracking buffer for rate-of-expansion (looming)
+// Historical tracking buffer for rate-of-expansion (looming & Tau)
 let prevTarget = {
   distanceM: 120,
   widthPx: 0,
   ts: 0
 };
+
+// 5-Frame rolling window for Savitzky-Golay / EMA distance smoothing and optical Tau
+const ROLLING_WINDOW_SIZE = 5;
+let trackingBuffer = [];
 
 let calibrationFrameCount = 0;
 
@@ -33,6 +37,7 @@ let calibrationFrameCount = 0;
 export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
   const cameraHeightM = options.cameraHeightM || 1.25;
   const horizonY = Math.min(height - 15, Math.max(20, options.horizonY || Math.floor(height * 0.45)));
+  const hoodCutoffY = Math.min(height - 1, Math.max(horizonY + 8, (typeof options.hoodCutoffY === 'number' && Number.isFinite(options.hoodCutoffY)) ? options.hoodCutoffY : Math.floor(height * 0.82)));
   const now = options.timestamp || Date.now();
   const totalPixels = width * height;
 
@@ -52,7 +57,9 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
       confidenceScore: 0,
       obstacleBbox: null,
       sensorConfidence: 'OFFLINE',
-      calibrationState: 'UNCALIBRATED'
+      calibrationState: 'UNCALIBRATED',
+      cipvStateVector: null,
+      opticalTauSec: 99
     };
   }
 
@@ -137,8 +144,8 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
   // (c) Bilateral symmetry across vehicle centerline
   // (d) Symmetric red taillight cluster validation
   // -------------------------------------------------------------
-  const scanStartY = horizonY + 3;
-  const scanEndY = Math.floor(height * 0.92);
+  const scanStartY = horizonY + 2;
+  const scanEndY = Math.min(Math.floor(height * 0.92), hoodCutoffY - 2);
   const roadMinX = Math.floor(width * 0.28);
   const roadMaxX = Math.floor(width * 0.72);
 
@@ -254,19 +261,48 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
   // -------------------------------------------------------------
   // 4. Ground-Plane Inverse Perspective Mapping (IPM) Distance
   // Distance (m) = (H_cam * fy) / (y_pixel - y_horizon)
+  // Strictly clamped above vehicle hood (y < hoodCutoffY)
   // -------------------------------------------------------------
   let targetDistanceM = 120;
+  let rawDistance = 120;
   let opticalUncertaintyM = 0;
   let conservativeDistanceM = 120;
   let targetClosingSpeedMph = 0;
+  let closingSpeedMps = 0;
+  let opticalTauSec = 99;
   let obstacleBbox = null;
+  let cipvStateVector = null;
 
-  if (bestObstacleRow > horizonY) {
+  if (bestObstacleRow > horizonY && bestObstacleRow < hoodCutoffY) {
     const deltaY = bestObstacleRow - horizonY;
-    const rawDistance = (cameraHeightM * FOCAL_LENGTH_Y_PX) / deltaY;
-    targetDistanceM = Math.max(3, Math.min(150, Math.round(rawDistance)));
-
+    rawDistance = (cameraHeightM * FOCAL_LENGTH_Y_PX) / deltaY;
     const boxH = Math.max(6, Math.floor(bestObstacleW * 0.65));
+    const scaleS = Math.sqrt(bestObstacleW * boxH);
+
+    // Push sample to 5-frame rolling buffer
+    trackingBuffer.push({
+      z: rawDistance,
+      w: bestObstacleW,
+      h: boxH,
+      s: scaleS,
+      row: bestObstacleRow,
+      ts: now
+    });
+    if (trackingBuffer.length > ROLLING_WINDOW_SIZE) {
+      trackingBuffer.shift();
+    }
+
+    // Filter distance with weighted moving average (gives higher weight to latest ticks)
+    let weightSum = 0;
+    let weightedZ = 0;
+    trackingBuffer.forEach((sample, idx) => {
+      const weight = idx + 1;
+      weightedZ += sample.z * weight;
+      weightSum += weight;
+    });
+    const smoothedDistance = weightedZ / weightSum;
+    targetDistanceM = Math.max(3, Math.min(150, Math.round(smoothedDistance)));
+
     obstacleBbox = {
       x: Math.max(0, bestObstacleX - Math.floor(bestObstacleW / 2)),
       y: Math.max(0, bestObstacleRow - boxH),
@@ -281,16 +317,49 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
     conservativeDistanceM = Math.max(1, Math.round(targetDistanceM - opticalUncertaintyM));
 
     // -----------------------------------------------------------
-    // 5. Optical Looming & Closing Velocity Derivative: Δv = -Δd / Δt
+    // 5. Optical Looming, Multi-Frame Tau (τ = s / s_dot) & Closing Δv
     // -----------------------------------------------------------
-    if (prevTarget.ts > 0 && now > prevTarget.ts) {
-      const dtSec = (now - prevTarget.ts) / 1000;
-      if (dtSec > 0.05 && dtSec < 0.50) {
-        const deltaDistM = prevTarget.distanceM - targetDistanceM;
-        const closingSpeedMps = deltaDistM / dtSec;
-        targetClosingSpeedMph = Math.round(closingSpeedMps * MPS_TO_MPH);
+    if (trackingBuffer.length >= 2) {
+      const oldest = trackingBuffer[0];
+      const newest = trackingBuffer[trackingBuffer.length - 1];
+      const dtSec = (newest.ts - oldest.ts) / 1000;
+
+      if (dtSec > 0.06 && dtSec < 1.0) {
+        // Linear distance derivative (closing velocity)
+        const deltaDistM = oldest.z - newest.z;
+        closingSpeedMps = deltaDistM / dtSec;
+
+        // Visual scale expansion rate (optical Tau)
+        const deltaScale = newest.s - oldest.s;
+        const sDot = deltaScale / dtSec;
+        if (sDot > 0.35 && newest.s > 4) {
+          opticalTauSec = Math.max(0.5, Math.round((newest.s / sDot) * 10) / 10);
+        }
+
+        // Noise gate: only report active closing if > 0.45 m/s (~1 mph)
+        if (closingSpeedMps > 0.45) {
+          targetClosingSpeedMph = Math.round(closingSpeedMps * MPS_TO_MPH);
+        } else {
+          targetClosingSpeedMph = 0;
+        }
       }
     }
+
+    cipvStateVector = {
+      targetId: 1,
+      confidencePct: bestConfidence,
+      bbox: obstacleBbox,
+      bottomY: bestObstacleRow,
+      horizonY: horizonY,
+      hoodCutoffY: hoodCutoffY,
+      rawDistanceM: Math.round(rawDistance * 10) / 10,
+      filteredDistanceM: targetDistanceM,
+      opticalUncertaintyM: opticalUncertaintyM,
+      vRelMps: Math.round(closingSpeedMps * 10) / 10,
+      targetClosingSpeedMph: targetClosingSpeedMph,
+      opticalTauSec: opticalTauSec,
+      brakeLightsDetected: brakeLightsDetected
+    };
 
     prevTarget = {
       distanceM: targetDistanceM,
@@ -298,6 +367,7 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
       ts: now
     };
   } else {
+    trackingBuffer = [];
     prevTarget.ts = 0;
   }
 
@@ -331,7 +401,9 @@ export function analyzeFrame(pixels, width = 160, height = 120, options = {}) {
     confidenceScore: bestConfidence / 100,
     obstacleBbox,
     sensorConfidence,
-    calibrationState
+    calibrationState,
+    cipvStateVector,
+    opticalTauSec
   };
 }
 
@@ -344,5 +416,6 @@ export function resetVisionState() {
     widthPx: 0,
     ts: 0
   };
+  trackingBuffer = [];
   calibrationFrameCount = 0;
 }

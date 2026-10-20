@@ -11,6 +11,7 @@
 
 import { telemetryState } from '../state.js';
 import { evaluateAudioAlert } from './audioAlerts.js';
+import { loadReplayVideo, replayPlay, replayPause, replayStep, replaySeek, replaySetRate, exitReplayMode } from '../sensors/camera.js';
 
 let isRunning = false;
 
@@ -19,6 +20,44 @@ let speedValEl = null;
 let speedUnitLabelEl = null;
 let speedStatusEl = null;
 let targetDistValEl = null;
+
+export function setHorizonY(y) {
+  const val = Math.max(20, Math.min(90, parseInt(y, 10)));
+  telemetryState.horizonY = val;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('datum_horizon_y', val.toString());
+    }
+  } catch (e) {}
+}
+
+export function setHoodCutoffY(y) {
+  const val = Math.max(60, Math.min(118, parseInt(y, 10)));
+  telemetryState.hoodCutoffY = val;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('datum_hood_cutoff', val.toString());
+    }
+  } catch (e) {}
+}
+
+export function toggleDevTelemetry(forceState) {
+  if (typeof forceState === 'boolean') {
+    telemetryState.devTelemetryOverlayVisible = forceState;
+  } else {
+    telemetryState.devTelemetryOverlayVisible = !telemetryState.devTelemetryOverlayVisible;
+  }
+  if (typeof document !== 'undefined') {
+    const btn = document.getElementById('btn-header-dev-telemetry');
+    if (btn) {
+      btn.classList.toggle('active', telemetryState.devTelemetryOverlayVisible);
+    }
+    const btnDrawer = document.getElementById('btn-drawer-dev-telemetry');
+    if (btnDrawer) {
+      btnDrawer.classList.toggle('active', telemetryState.devTelemetryOverlayVisible);
+    }
+  }
+}
 
 export function setSpeedUnit(unit) {
   const normalized = (unit === 'KMH' || unit === 'KM' || unit === 'km/h') ? 'KMH' : 'MPH';
@@ -143,6 +182,99 @@ export function initHud() {
   arCanvas = document.getElementById('ar-overlay-canvas');
   if (arCanvas) {
     arCtx = arCanvas.getContext('2d');
+  }
+
+  // Developer Telemetry & Replay Event Bindings
+  const btnDevHeader = document.getElementById('btn-header-dev-telemetry');
+  if (btnDevHeader) {
+    btnDevHeader.addEventListener('click', () => toggleDevTelemetry());
+  }
+
+  const btnDevDrawer = document.getElementById('btn-drawer-dev-telemetry');
+  if (btnDevDrawer) {
+    btnDevDrawer.addEventListener('click', () => toggleDevTelemetry());
+  }
+
+  // Keydown shortcut: 'D' toggles Dev Telemetry Overlay
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'd' || e.key === 'D') {
+      if (!e.target.matches('input, textarea, select')) {
+        toggleDevTelemetry();
+      }
+    }
+  });
+
+  // Replay Drag-and-Drop Harness on Viewport
+  if (hudContainerEl) {
+    hudContainerEl.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    hudContainerEl.addEventListener('drop', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+        const file = e.dataTransfer.files[0];
+        if (file.type.startsWith('video/') || file.name.endsWith('.mp4') || file.name.endsWith('.webm') || file.name.endsWith('.mov')) {
+          loadReplayVideo(file);
+        }
+      }
+    });
+  }
+
+  // File Input Trigger
+  const inputReplayFile = document.getElementById('input-replay-file');
+  if (inputReplayFile) {
+    inputReplayFile.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files[0]) {
+        loadReplayVideo(e.target.files[0]);
+      }
+    });
+  }
+
+  const btnHeaderReplay = document.getElementById('btn-header-replay');
+  if (btnHeaderReplay && inputReplayFile) {
+    btnHeaderReplay.addEventListener('click', () => inputReplayFile.click());
+  }
+
+  const btnDrawerReplay = document.getElementById('btn-drawer-replay');
+  if (btnDrawerReplay && inputReplayFile) {
+    btnDrawerReplay.addEventListener('click', () => inputReplayFile.click());
+  }
+
+  // Replay Floating Bar Controls
+  const btnReplayPlay = document.getElementById('btn-replay-play');
+  if (btnReplayPlay) {
+    btnReplayPlay.addEventListener('click', () => {
+      if (telemetryState.replayIsPaused) replayPlay();
+      else replayPause();
+    });
+  }
+
+  const btnReplayStep = document.getElementById('btn-replay-step');
+  if (btnReplayStep) {
+    btnReplayStep.addEventListener('click', () => replayStep(1));
+  }
+
+  const btnReplayRate = document.getElementById('btn-replay-rate');
+  if (btnReplayRate) {
+    btnReplayRate.addEventListener('click', () => {
+      const nextRate = telemetryState.replayPlaybackRate === 1.0 ? 0.5 : (telemetryState.replayPlaybackRate === 0.5 ? 0.25 : 1.0);
+      replaySetRate(nextRate);
+      btnReplayRate.textContent = `${nextRate}x`;
+    });
+  }
+
+  const btnReplayClose = document.getElementById('btn-replay-close');
+  if (btnReplayClose) {
+    btnReplayClose.addEventListener('click', () => exitReplayMode());
+  }
+
+  const scrubSlider = document.getElementById('replay-scrub-slider');
+  if (scrubSlider) {
+    scrubSlider.addEventListener('input', (e) => {
+      replaySeek(parseFloat(e.target.value));
+    });
   }
 
   initHeaderAutoFade();
@@ -416,6 +548,89 @@ function renderState() {
     hudContainerEl.classList.toggle('mirror-hud', mode === 'MIRROR_HORIZONTAL');
     hudContainerEl.classList.toggle('hud-projection-mode', mode !== 'OFF');
   }
+
+  // 11. Developer Telemetry State Vector Overlay (CIPV Inspector)
+  renderDevTelemetry();
+
+  // 12. Replay Control Bar Telemetry Sync
+  renderReplayBar();
+}
+
+function renderDevTelemetry() {
+  if (typeof document === 'undefined') return;
+  const overlayEl = document.getElementById('hud-dev-telemetry-overlay');
+  if (!overlayEl) return;
+
+  if (!telemetryState.devTelemetryOverlayVisible) {
+    overlayEl.style.display = 'none';
+    return;
+  }
+
+  overlayEl.style.display = 'block';
+  const v = telemetryState.cipvStateVector || {};
+  const isKmh = telemetryState.speedUnit === 'KMH';
+  const egoSpeedStr = isKmh
+    ? `${telemetryState.speedKmh || Math.round((telemetryState.speedMps || 0) * 3.6)} km/h`
+    : `${telemetryState.speedMph || Math.round((telemetryState.speedMps || 0) * 2.23694)} mph`;
+  const vRelMps = v.vRelMps || 0;
+  const vRelDisp = isKmh ? `${Math.round(vRelMps * 3.6)} km/h` : `${Math.round(vRelMps * 2.23694)} mph`;
+
+  overlayEl.innerHTML = `
+    <div class="dev-telemetry-header">
+      <span class="dev-telemetry-title">CIPV STATE VECTOR</span>
+      <span class="dev-telemetry-tag ${telemetryState.isReplayMode ? 'tag-replay' : 'tag-live'}">${telemetryState.isReplayMode ? 'REPLAY HARNESS' : 'LIVE SENSORS'}</span>
+    </div>
+    <div class="dev-telemetry-grid">
+      <div class="dev-row"><span class="dev-lbl">TARGET_ID:</span><span class="dev-val">${v.targetId ?? 'NONE'}</span></div>
+      <div class="dev-row"><span class="dev-lbl">CONFIDENCE:</span><span class="dev-val">${v.confidencePct ?? 0}%</span></div>
+      <div class="dev-row"><span class="dev-lbl">BBOX_BOTTOM_Y:</span><span class="dev-val">${v.bottomY ? v.bottomY + 'px' : '—'}</span></div>
+      <div class="dev-row"><span class="dev-lbl">Y_HORIZON:</span><span class="dev-val">${v.horizonY || telemetryState.horizonY}px</span></div>
+      <div class="dev-row"><span class="dev-lbl">Y_HOOD_CUTOFF:</span><span class="dev-val">${v.hoodCutoffY || telemetryState.hoodCutoffY}px</span></div>
+      <div class="dev-row"><span class="dev-lbl">RAW_RAYCAST_Z:</span><span class="dev-val">${v.rawDistanceM ? v.rawDistanceM + 'm' : '—'}</span></div>
+      <div class="dev-row"><span class="dev-lbl">FILTERED_Z:</span><span class="dev-val font-bold highlight">${v.filteredDistanceM || telemetryState.targetDistanceM}m</span></div>
+      <div class="dev-row"><span class="dev-lbl">OPTICAL_UNCERT:</span><span class="dev-val">±${v.opticalUncertaintyM || telemetryState.opticalUncertaintyM}m</span></div>
+      <div class="dev-row"><span class="dev-lbl">EGO_SPEED:</span><span class="dev-val">${egoSpeedStr} (${(telemetryState.speedMps || 0).toFixed(1)}m/s)</span></div>
+      <div class="dev-row"><span class="dev-lbl">REL_VELOCITY (v_rel):</span><span class="dev-val ${vRelMps > 0.4 ? 'val-danger' : ''}">${vRelDisp} (${vRelMps.toFixed(1)}m/s)</span></div>
+      <div class="dev-row"><span class="dev-lbl">OPTICAL_TAU (τ):</span><span class="dev-val font-bold">${v.opticalTauSec && v.opticalTauSec < 90 ? v.opticalTauSec + 's' : 'STABLE'}</span></div>
+      <div class="dev-row"><span class="dev-lbl">KINEMATIC_TTC:</span><span class="dev-val">${telemetryState.timeToCollisionSec < 90 ? telemetryState.timeToCollisionSec + 's' : 'STABLE'}</span></div>
+      <div class="dev-row"><span class="dev-lbl">STOPPING_DIST:</span><span class="dev-val">${telemetryState.stoppingDistanceM}m</span></div>
+      <div class="dev-row"><span class="dev-lbl">SAFETY_MARGIN:</span><span class="dev-val ${telemetryState.safetyMarginM < 0 ? 'val-danger' : 'val-safe'}">${telemetryState.safetyMarginM}m</span></div>
+      <div class="dev-row"><span class="dev-lbl">STATE:</span><span class="dev-val font-bold ${telemetryState.alertLevel === 'DANGER_COLLISION' ? 'val-danger' : 'val-safe'}">${telemetryState.alertLevel}</span></div>
+      <div class="dev-row"><span class="dev-lbl">DEBOUNCE_FRAMES:</span><span class="dev-val">${telemetryState.consecutiveHazardFrames}</span></div>
+    </div>
+  `;
+}
+
+function renderReplayBar() {
+  if (typeof document === 'undefined') return;
+  const replayBar = document.getElementById('hud-replay-bar');
+  if (!replayBar) return;
+
+  if (telemetryState.isReplayMode) {
+    replayBar.classList.remove('hidden');
+    const scrub = document.getElementById('replay-scrub-slider');
+    const timeLabel = document.getElementById('replay-time-display');
+    const playBtn = document.getElementById('btn-replay-play');
+    const cur = telemetryState.replayCurrentTimeSec || 0;
+    const dur = telemetryState.replayDurationSec || 0;
+
+    if (timeLabel) {
+      const curFmt = `${Math.floor(cur / 60)}:${Math.floor(cur % 60).toString().padStart(2, '0')}`;
+      const durFmt = `${Math.floor(dur / 60)}:${Math.floor(dur % 60).toString().padStart(2, '0')}`;
+      timeLabel.textContent = `${curFmt} / ${durFmt}`;
+    }
+
+    if (scrub && dur > 0 && !scrub.matches(':active')) {
+      scrub.max = dur.toFixed(1);
+      scrub.value = cur.toFixed(1);
+    }
+
+    if (playBtn) {
+      playBtn.textContent = telemetryState.replayIsPaused ? 'PLAY' : 'PAUSE';
+    }
+  } else {
+    replayBar.classList.add('hidden');
+  }
 }
 
 /**
@@ -443,24 +658,29 @@ function renderRoadOptics() {
   arCtx.scale(dpr, dpr);
   arCtx.clearRect(0, 0, w, h);
 
-  // Isotropic Pinhole Optics with Adaptive Portrait Frustum
-  // Matching camera viewport object-fit: cover scaling
+  // Isotropic Pinhole Optics with Adaptive Perspective Frustum
+  // Ground-Contact Perspective: lines, gates, and stopping arc are anchored strictly between horizonPx and hoodPx
   const isPortrait = h > w;
   const scale = Math.max(w / 160, h / 120);
   const F_OPT = 115 * scale;
-  // Dynamic horizontal and vertical focal lengths: prevent corridor clipping on tall narrow screens
-  const F_OPT_X = isPortrait ? (w * 0.82) : F_OPT;
-  const F_OPT_Y = isPortrait ? (F_OPT * 0.70) : F_OPT;
+  const F_OPT_X = isPortrait ? (w * 0.85) : F_OPT;
+  const F_OPT_Y = isPortrait ? (h * 0.95) : F_OPT;
   const vidW = 160 * scale;
   const vidH = 120 * scale;
   const offsetX = (w - vidW) / 2;
   const offsetY = (h - vidH) / 2;
 
-  // Stabilized Horizon row mapped to screen pixels
-  const normHorizonY = (telemetryState.horizonY !== undefined ? telemetryState.horizonY : 54);
-  const horizonPx = isPortrait
-    ? Math.max(h * 0.28, Math.min(h * 0.48, h * 0.38 + (telemetryState.pitchDeg || 0) * 3))
-    : Math.max(h * 0.20, Math.min(h * 0.80, offsetY + (normHorizonY * scale)));
+  // Ground-anchored horizon and vehicle hood cutoff mapping
+  const normHorizonY = (typeof telemetryState.horizonY === 'number') ? telemetryState.horizonY : 54;
+  const normHoodY = (typeof telemetryState.hoodCutoffY === 'number') ? telemetryState.hoodCutoffY : 98;
+
+  // Map 0-120 perception row space to screen pixel coordinates
+  const horizonFraction = normHorizonY / 120.0;
+  const hoodFraction = normHoodY / 120.0;
+  const pitchOffsetPx = (telemetryState.pitchDeg || 0) * 4.5;
+
+  const horizonPx = Math.max(h * 0.20, Math.min(h * 0.70, (h * horizonFraction) + pitchOffsetPx));
+  const hoodPx = Math.max(horizonPx + 40, Math.min(h, h * hoodFraction));
   const H_CAM = Math.max(0.8, telemetryState.cameraHeightM || 1.25);
 
   let isDanger = telemetryState.alertLevel === 'DANGER_COLLISION';
@@ -479,14 +699,42 @@ function renderRoadOptics() {
   }
 
   // 1. Serene Horizon Reference Line (Gyroscope Stabilized)
-  arCtx.strokeStyle = 'rgba(255, 255, 255, 0.10)';
+  arCtx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
   arCtx.lineWidth = 1;
   arCtx.beginPath();
-  arCtx.moveTo(w * 0.25, horizonPx);
-  arCtx.lineTo(w * 0.45, horizonPx);
-  arCtx.moveTo(w * 0.55, horizonPx);
-  arCtx.lineTo(w * 0.75, horizonPx);
+  arCtx.moveTo(w * 0.20, horizonPx);
+  arCtx.lineTo(w * 0.44, horizonPx);
+  arCtx.moveTo(w * 0.56, horizonPx);
+  arCtx.lineTo(w * 0.80, horizonPx);
   arCtx.stroke();
+
+  // Visual Calibration Guides (Active during calibration or drawer inspection)
+  const isDrawerOpen = typeof document !== 'undefined' && document.getElementById('sim-drawer')?.classList.contains('open');
+  if (isDrawerOpen) {
+    // Green Vanishing Horizon Guide
+    arCtx.save();
+    arCtx.strokeStyle = 'rgba(48, 209, 88, 0.75)';
+    arCtx.lineWidth = 1.2;
+    arCtx.setLineDash([6, 4]);
+    arCtx.beginPath();
+    arCtx.moveTo(8, horizonPx);
+    arCtx.lineTo(w - 8, horizonPx);
+    arCtx.stroke();
+    arCtx.fillStyle = '#30d158';
+    arCtx.font = '600 10px monospace';
+    arCtx.textAlign = 'left';
+    arCtx.fillText(`VANISHING HORIZON: ${normHorizonY}px (${Math.round(horizonPx)}px)`, 12, horizonPx - 5);
+
+    // Amber Hood Cutoff Guide
+    arCtx.strokeStyle = 'rgba(255, 209, 89, 0.75)';
+    arCtx.beginPath();
+    arCtx.moveTo(8, hoodPx);
+    arCtx.lineTo(w - 8, hoodPx);
+    arCtx.stroke();
+    arCtx.fillStyle = '#ffd159';
+    arCtx.fillText(`HOOD CUTOFF MASK: ${normHoodY}px (${Math.round(hoodPx)}px)`, 12, hoodPx - 5);
+    arCtx.restore();
+  }
 
   // 2. Physical Vehicle Tracking & Golden Highway Dashed Lanes
   const laneLeftM = -1.8;
@@ -503,7 +751,8 @@ function renderRoadOptics() {
   const curveNearOffsetM = 0.5 * kappa * (4.0 * 4.0);   // tiny offset at near (smooth join)
 
   // A. Inner Vehicle Wheel-Track Trajectory (1.85m track width) — curved toward turn
-  const trackNearY = h + 10;
+  // Begins at vehicle hood cutoff (hoodPx), never on dashboard
+  const trackNearY = hoodPx;
   const trackNearZ = Math.max(1.0, (H_CAM * F_OPT_Y) / Math.max(1, (trackNearY - horizonPx)));
   const trackFarZ = 55.0; // 55m ahead
   const trackFarY = horizonPx + (H_CAM * F_OPT_Y) / trackFarZ;
@@ -531,15 +780,13 @@ function renderRoadOptics() {
   arCtx.quadraticCurveTo(xMidR, trackMidY, xFarR, trackFarY);
   arCtx.stroke();
 
-
-
   // B. Highway Dashed Lane Stripes (Golden / Yellow Luxury Automotive Palette)
   // Standard highway geometry: 3.6m lane width (-1.8m left, +1.8m right)
   // Dashes: 3m paint, 9m gap (12m cycle) with 3D perspective trapezoids
   const cycleM = 12.0;
   const dashLengthM = 3.0;
   const maxZ = 80.0;
-  const zBottom = Math.max(1.0, (H_CAM * F_OPT_Y) / Math.max(1, (h - horizonPx + 30)));
+  const zBottom = Math.max(1.0, (H_CAM * F_OPT_Y) / Math.max(1, (hoodPx - horizonPx)));
   const zExit = Math.max(0.6, zBottom - dashLengthM);
 
   // Phase shift: advances forward with vehicle speed so stripes travel towards driver
@@ -558,14 +805,14 @@ function renderRoadOptics() {
     const y1 = horizonPx + (H_CAM * F_OPT_Y) / clampedZ1;
     const y2 = horizonPx + (H_CAM * F_OPT_Y) / clampedZ2;
 
-    if (y1 <= horizonPx || y2 <= horizonPx) continue;
+    if (y1 <= horizonPx || y2 <= horizonPx || y1 > hoodPx + 5) continue;
 
     const wStripe1 = Math.max(1.2, (stripeWidthM * F_OPT_X) / clampedZ1);
     const wStripe2 = Math.max(0.6, (stripeWidthM * F_OPT_X) / clampedZ2);
 
-    // Dynamic atmospheric & bumper exit fade
+    // Dynamic atmospheric & bumper exit fade anchored at hood line
     const farFade = Math.max(0, Math.min(1.0, (maxZ - clampedZ1) / 25.0));
-    const nearFade = Math.max(0.3, Math.min(1.0, (h + 40 - y1) / 60.0));
+    const nearFade = Math.max(0.3, Math.min(1.0, (hoodPx + 10 - y1) / 45.0));
     const fade = Math.max(0.18, Math.min(1.0, farFade * nearFade));
 
     // Left Lane Dash (X = laneLeftM + curvature lateral shift per depth)
@@ -666,12 +913,13 @@ function renderRoadOptics() {
 
   // C. Static Road Distance Marks (15m, 30m, 50m)
   // Calibrated transverse highway gates anchored onto the asphalt with Apple Spatial Glass Pills
+  // Clamped strictly between horizonPx and vehicle hood line (hoodPx)
   const staticGates = [15, 30, 50];
   arCtx.font = '600 10.5px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
 
   staticGates.forEach(distM => {
     const yPx = horizonPx + (H_CAM * F_OPT_Y) / distM;
-    if (yPx > horizonPx + 8 && yPx < h - 12) {
+    if (yPx > horizonPx + 6 && yPx <= hoodPx - 2) {
       const xLeft = (w / 2) + (laneLeftM * F_OPT_X) / distM;
       const xRight = (w / 2) + (laneRightM * F_OPT_X) / distM;
 
@@ -730,7 +978,7 @@ function renderRoadOptics() {
   const stoppingDistM = telemetryState.stoppingDistanceM;
   if (stoppingDistM > 5 && stoppingDistM < 130) {
     const stopY = horizonPx + (H_CAM * F_OPT_Y) / stoppingDistM;
-    if (stopY > horizonPx + 6 && stopY < h - 10) {
+    if (stopY > horizonPx + 6 && stopY <= hoodPx - 2) {
       const isBreached = telemetryState.targetDistanceM <= stoppingDistM;
       const arcWidth = Math.min(w * 0.70, (3.6 * F_OPT_X) / stoppingDistM);
       const arcLeft = (w - arcWidth) / 2;
@@ -780,6 +1028,12 @@ function renderRoadOptics() {
     const by = offsetY + (bbox.y * scale);
     const bw = bbox.width * scale;
     const bh = bbox.height * scale;
+
+    // Hard reject detections on the car hood/wipers or floating high in the sky
+    if (by + bh > hoodPx + 4 || by < horizonPx - 25) {
+      arCtx.restore();
+      return;
+    }
 
     let strokeColor = 'rgba(255, 209, 89, 0.75)';
     if (telemetryState.alertLevel === 'DANGER_COLLISION') {

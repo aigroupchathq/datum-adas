@@ -3,6 +3,32 @@
  * High-precision, zero-allocation schema for life-critical automotive avionics.
  */
 
+function getInitialHorizonY() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('datum_horizon_y');
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (Number.isFinite(val) && val >= 20 && val <= 90) return val;
+      }
+    }
+  } catch (e) {}
+  return 54; // Default row in 160x120 space (~45%)
+}
+
+function getInitialHoodCutoff() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('datum_hood_cutoff');
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (Number.isFinite(val) && val >= 60 && val <= 118) return val;
+      }
+    }
+  } catch (e) {}
+  return 98; // Default row in 160x120 space (~82% height, above vehicle hood)
+}
+
 function getInitialSpeedUnit() {
   try {
     if (typeof localStorage !== 'undefined') {
@@ -17,15 +43,26 @@ function getInitialSpeedUnit() {
 }
 
 const initialSpeedUnit = getInitialSpeedUnit();
+const initialHorizonY = getInitialHorizonY();
+const initialHoodCutoff = getInitialHoodCutoff();
 
 export const telemetryState = {
   isRunning: false,
   isSimMode: false,
+  isReplayMode: false,         // True when executing deterministic dashcam replay
+  replayFileName: null,        // Name of loaded .mp4/.webm file
+  replayCurrentTimeSec: 0,     // Current playback position in video
+  replayDurationSec: 0,        // Video total duration
+  replayIsPaused: false,       // Video pause state
+  replayPlaybackRate: 1.0,     // Playback rate (0.25x, 0.5x, 1.0x)
+  devTelemetryOverlayVisible: false, // Toggleable CIPV developer inspector HUD
+  cipvStateVector: null,       // Real-time CIPV mathematical telemetry snapshot
 
   // Vehicle Geometry & Inertial Attitude (60 Hz IMU Fusion)
   vehicleClass: 'SEDAN',       // 'SEDAN' (1.25m) | 'SUV' (1.55m) | 'TRUCK' (1.90m)
   cameraHeightM: 1.25,         // Camera optical elevation above ground plane
-  horizonY: 54,                // Dynamic vanishing point row (0-120)
+  horizonY: initialHorizonY,   // Dynamic vanishing point row (0-120)
+  hoodCutoffY: initialHoodCutoff, // Vehicle hood/wiper cutoff row (0-120), rejects self-reflections
   pitchDeg: 0,                 // Inertial pitch angle (degrees) from device gyro
   rollDeg: 0,                  // Lateral tilt/roll angle (degrees)
   imuCalibrated: false,        // True once ground plane baseline is established

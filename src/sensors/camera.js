@@ -173,12 +173,35 @@ function enableSimFallback(status, errorMsg = '') {
 }
 
 /**
- * 10 Hz Ephemeral Sampling Loop
+ * 10 Hz Ephemeral Sampling Loop with Isotropic Aspect Ratio Preservation
  */
 function sampleAndAnalyze() {
   if (!telemetryState.isSimMode && videoElement && videoElement.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-    // Ephemeral in-memory draw (immediately overwritten each tick)
-    offscreenCtx.drawImage(videoElement, 0, 0, FRAME_WIDTH, FRAME_HEIGHT);
+    // 1. Isotropic Center-Crop ROI: preserves native aspect ratio so circular lamps and vehicles aren't squashed
+    const vw = videoElement.videoWidth || 640;
+    const vh = videoElement.videoHeight || 480;
+    const targetAspect = FRAME_WIDTH / FRAME_HEIGHT; // 4/3 = 1.333
+    const videoAspect = vw / vh;
+    let sx = 0, sy = 0, sw = vw, sh = vh;
+
+    if (videoAspect > targetAspect) {
+      // Wide sensor (16:9 / 21:9): crop horizontal margins centered on road corridor
+      sw = vh * targetAspect;
+      sx = (vw - sw) / 2;
+    } else {
+      // Tall portrait sensor (9:16 / 9:19.5): crop top sky and bottom dashboard, bias toward road center
+      sh = vw / targetAspect;
+      sy = Math.max(0, Math.min(vh - sh, (vh - sh) * 0.45));
+    }
+
+    offscreenCtx.drawImage(videoElement, sx, sy, sw, sh, 0, 0, FRAME_WIDTH, FRAME_HEIGHT);
+
+    // Track playback timestamps for replay mode
+    if (telemetryState.isReplayMode && videoElement) {
+      telemetryState.replayCurrentTimeSec = videoElement.currentTime || 0;
+      telemetryState.replayDurationSec = videoElement.duration || 0;
+      telemetryState.replayIsPaused = videoElement.paused;
+    }
 
     const imageData = offscreenCtx.getImageData(0, 0, FRAME_WIDTH, FRAME_HEIGHT);
 
@@ -193,6 +216,7 @@ function sampleAndAnalyze() {
         options: {
           cameraHeightM: telemetryState.cameraHeightM,
           horizonY: telemetryState.horizonY,
+          hoodCutoffY: telemetryState.hoodCutoffY,
           yawRateDps: 0,
           timestamp: Date.now()
         },
@@ -212,7 +236,8 @@ function sampleAndAnalyze() {
       // In-thread synchronous fallback
       const visionOutputs = analyzeFrame(imageData.data, FRAME_WIDTH, FRAME_HEIGHT, {
         cameraHeightM: telemetryState.cameraHeightM,
-        horizonY: telemetryState.horizonY
+        horizonY: telemetryState.horizonY,
+        hoodCutoffY: telemetryState.hoodCutoffY
       });
       const laneOutputs = analyzeLaneFrame(imageData.data, FRAME_WIDTH, FRAME_HEIGHT, {
         speedMph: telemetryState.speedMph,
@@ -223,6 +248,9 @@ function sampleAndAnalyze() {
       const ecoOutputs = evaluateEcoKinematics(telemetryState);
 
       Object.assign(telemetryState, visionOutputs, laneOutputs, lvdaOutputs, ecoOutputs);
+      if (visionOutputs && visionOutputs.cipvStateVector) {
+        telemetryState.cipvStateVector = visionOutputs.cipvStateVector;
+      }
 
       // Cross-sensor validation (Sensor Incongruence Flag)
       const isMovingAtRoadSpeed = telemetryState.speedMps > 6.7;
@@ -238,6 +266,139 @@ function sampleAndAnalyze() {
     const ecoOutputs = evaluateEcoKinematics(telemetryState);
     Object.assign(telemetryState, safetyOutputs, lvdaOutputs, ecoOutputs);
   }
+}
+
+/**
+ * Deterministic Replay Harness (comma.ai / openpilot standard)
+ * Feeds a local .mp4/.webm dashcam recording directly into the optical sampling canvas
+ */
+export function loadReplayVideo(fileOrUrl) {
+  if (!videoElement) {
+    videoElement = document.getElementById('live-camera-video');
+    if (!videoElement) {
+      videoElement = document.createElement('video');
+      videoElement.id = 'live-camera-video';
+      document.body.appendChild(videoElement);
+    }
+  }
+
+  // Detach live webcam stream if active
+  if (videoElement.srcObject) {
+    try {
+      const tracks = videoElement.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
+    } catch (e) {}
+    videoElement.srcObject = null;
+  }
+
+  // Prepare in-memory sampling canvas (160x120)
+  if (!offscreenCanvas) {
+    offscreenCanvas = document.createElement('canvas');
+    offscreenCanvas.width = FRAME_WIDTH;
+    offscreenCanvas.height = FRAME_HEIGHT;
+    offscreenCtx = offscreenCanvas.getContext('2d', { willReadFrequently: true });
+  }
+
+  initVisionWorker();
+
+  const isFile = typeof fileOrUrl === 'object' && fileOrUrl instanceof Blob;
+  const videoSrc = isFile ? URL.createObjectURL(fileOrUrl) : fileOrUrl;
+  const fileName = isFile ? fileOrUrl.name : (typeof fileOrUrl === 'string' ? fileOrUrl.split('/').pop() : 'dashcam_drive.mp4');
+
+  telemetryState.isReplayMode = true;
+  telemetryState.isSimMode = false;
+  telemetryState.replayFileName = fileName;
+  telemetryState.cameraStatus = 'REPLAY';
+  telemetryState.cameraError = null;
+  telemetryState.sensorConfidence = 'CONFIDENT';
+  telemetryState.isRunning = true;
+
+  videoElement.src = videoSrc;
+  videoElement.loop = true;
+  videoElement.muted = true;
+  videoElement.playsInline = true;
+
+  videoElement.onloadedmetadata = () => {
+    telemetryState.cameraResolution = `${videoElement.videoWidth}x${videoElement.videoHeight}`;
+    telemetryState.replayDurationSec = videoElement.duration || 0;
+    videoElement.play().catch(e => console.warn('Replay video autoplay prompt:', e));
+  };
+
+  videoElement.onplay = () => {
+    telemetryState.replayIsPaused = false;
+  };
+
+  videoElement.onpause = () => {
+    telemetryState.replayIsPaused = true;
+  };
+
+  // Start sampling loop if not already running
+  if (!loopIntervalId) {
+    loopIntervalId = setInterval(sampleAndAnalyze, TICK_RATE_MS);
+  }
+
+  // Sync replay UI if present
+  if (typeof document !== 'undefined') {
+    const replayBar = document.getElementById('hud-replay-bar');
+    if (replayBar) replayBar.classList.remove('hidden');
+    const replayName = document.getElementById('replay-file-title');
+    if (replayName) replayName.textContent = fileName;
+  }
+}
+
+export function replayPlay() {
+  if (videoElement && videoElement.paused) {
+    videoElement.play().catch(e => console.warn('replay play error:', e));
+    telemetryState.replayIsPaused = false;
+  }
+}
+
+export function replayPause() {
+  if (videoElement && !videoElement.paused) {
+    videoElement.pause();
+    telemetryState.replayIsPaused = true;
+  }
+}
+
+export function replayStep(frames = 1) {
+  if (videoElement) {
+    if (!videoElement.paused) videoElement.pause();
+    telemetryState.replayIsPaused = true;
+    // Step forward in 100ms ticks (1 tick at 10Hz)
+    videoElement.currentTime = Math.min(videoElement.duration || 999, videoElement.currentTime + (frames * 0.1));
+  }
+}
+
+export function replaySeek(timeSec) {
+  if (videoElement && Number.isFinite(timeSec)) {
+    videoElement.currentTime = Math.max(0, Math.min(videoElement.duration || 0, timeSec));
+  }
+}
+
+export function replaySetRate(rate = 1.0) {
+  if (videoElement && Number.isFinite(rate)) {
+    videoElement.playbackRate = rate;
+    telemetryState.replayPlaybackRate = rate;
+  }
+}
+
+export function exitReplayMode() {
+  if (videoElement) {
+    videoElement.pause();
+    videoElement.removeAttribute('src');
+    videoElement.load();
+  }
+  telemetryState.isReplayMode = false;
+  telemetryState.replayFileName = null;
+  telemetryState.cameraStatus = 'OFFLINE';
+
+  if (typeof document !== 'undefined') {
+    const replayBar = document.getElementById('hud-replay-bar');
+    if (replayBar) replayBar.classList.add('hidden');
+  }
+
+  // Attempt to re-initialize camera
+  initCamera();
 }
 
 export function stopCamera() {
