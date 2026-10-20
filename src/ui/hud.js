@@ -349,23 +349,23 @@ function renderState() {
     }
   }
 
-  // 3. Human-Centric Road Surface Intelligence (Stoic, Non-Noisy)
+  // 3. Human-Centric Road Surface Intelligence (Simple, Plain-English, Non-Technical)
   if (roadStatusTextEl) {
     switch (telemetryState.roadCondition) {
       case 'FOG_HAZE':
-        roadStatusTextEl.textContent = `WET SPRAY • BRAKING DISTANCE +40% (${telemetryState.visibilityRangeM}m VIS)`;
+        roadStatusTextEl.textContent = `WET ROAD • EXTRA BRAKING NEEDED`;
         roadStatusTextEl.style.color = '#ffaa00';
         break;
       case 'GLARE':
-        roadStatusTextEl.textContent = `DIRECT SUN GLARE • SIGHTLINE REDUCED`;
+        roadStatusTextEl.textContent = `SUN GLARE • REDUCED SIGHT`;
         roadStatusTextEl.style.color = '#ffaa00';
         break;
       case 'LOW_LIGHT':
-        roadStatusTextEl.textContent = `NIGHT CORRIDOR • TAILLIGHT TRACKING ACTIVE`;
+        roadStatusTextEl.textContent = `NIGHT DRIVING • ACTIVE`;
         roadStatusTextEl.style.color = 'rgba(255, 255, 255, 0.7)';
         break;
       default:
-        roadStatusTextEl.textContent = `DRY ROAD • OPTIMAL TRACTION`;
+        roadStatusTextEl.textContent = `DRY ROAD • GOOD GRIP`;
         roadStatusTextEl.style.color = 'rgba(255, 255, 255, 0.6)';
         break;
     }
@@ -385,34 +385,34 @@ function renderState() {
       safetyMarginValEl.textContent = `+${margin}m CLOSE`;
       safetyMarginValEl.className = 'metric-value val-caution';
     } else {
-      safetyMarginValEl.textContent = `${margin}m CRITICAL`;
+      safetyMarginValEl.textContent = `${margin}m TOO CLOSE`;
       safetyMarginValEl.className = 'metric-value val-danger';
     }
   }
 
   if (ttcValEl) {
     if (telemetryState.timeToCollisionSec >= 99 || (telemetryState.speedMps || 0) < 1.34) {
-      ttcValEl.textContent = 'STABLE';
+      ttcValEl.textContent = 'SAFE GAP';
       ttcValEl.className = 'metric-value';
     } else if (telemetryState.timeToCollisionSec < 2.5) {
-      ttcValEl.textContent = `${telemetryState.timeToCollisionSec}s IMMINENT`;
+      ttcValEl.textContent = `${telemetryState.timeToCollisionSec}s TO IMPACT`;
       ttcValEl.className = 'metric-value val-danger';
     } else {
-      ttcValEl.textContent = `${telemetryState.timeToCollisionSec}s`;
+      ttcValEl.textContent = `${telemetryState.timeToCollisionSec}s GAP`;
       ttcValEl.className = 'metric-value val-caution';
     }
   }
 
-  // 5. Closing Speed Delta Vector
+  // 5. Closing Speed Delta Vector (No engineering "Delta-v" symbols)
   if (closingSpeedEl) {
     const cvMph = telemetryState.targetClosingSpeedMph || 0;
     const cvVal = isKmh ? Math.round(cvMph * 1.60934) : cvMph;
     const unitLabel = isKmh ? 'km/h' : 'mph';
     if (cvMph > 2) {
-      closingSpeedEl.textContent = `Δv +${cvVal} ${unitLabel} CLOSING`;
+      closingSpeedEl.textContent = `CLOSING +${cvVal} ${unitLabel}`;
       closingSpeedEl.className = 'pill-chip pill-warn';
     } else {
-      closingSpeedEl.textContent = `Δv 0 ${unitLabel} STABLE`;
+      closingSpeedEl.textContent = `PACE MATCHED`;
       closingSpeedEl.className = 'pill-chip';
     }
   }
@@ -420,24 +420,24 @@ function renderState() {
   // 6. Brake Light Indicator
   if (brakeLightsEl) {
     if (telemetryState.targetBrakeLightsDetected) {
-      brakeLightsEl.textContent = '● BRAKE LIGHTS';
+      brakeLightsEl.textContent = '● BRAKE LIGHTS ON';
       brakeLightsEl.className = 'pill-chip pill-danger';
     } else {
-      brakeLightsEl.textContent = '○ BRAKES';
+      brakeLightsEl.textContent = '○ BRAKES OFF';
       brakeLightsEl.className = 'pill-chip';
     }
   }
 
-  // 7. Status Chips
+  // 7. Status Chips (Simple human terms)
   if (gpsStatusEl) {
     if (telemetryState.gpsStatus === 'ACTIVE') {
-      gpsStatusEl.textContent = '● GNSS';
+      gpsStatusEl.textContent = '● GPS OK';
       gpsStatusEl.className = 'pill-chip pill-safe';
     } else if (telemetryState.gpsStatus === 'DENIED') {
-      gpsStatusEl.textContent = '○ NO GNSS';
+      gpsStatusEl.textContent = '○ NO GPS';
       gpsStatusEl.className = 'pill-chip pill-warn';
     } else {
-      gpsStatusEl.textContent = '● GNSS (SIM)';
+      gpsStatusEl.textContent = '● GPS TEST';
       gpsStatusEl.className = 'pill-chip pill-sim';
     }
   }
@@ -445,7 +445,7 @@ function renderState() {
   if (imuStatusEl) {
     const pitch = telemetryState.pitchDeg;
     if (Math.abs(pitch) > 0.5) {
-      imuStatusEl.textContent = `● PITCH ${pitch > 0 ? '+' : ''}${pitch.toFixed(1)}°`;
+      imuStatusEl.textContent = `● TILT ${pitch > 0 ? '+' : ''}${pitch.toFixed(1)}°`;
     } else {
       imuStatusEl.textContent = '● LEVEL';
     }
@@ -454,58 +454,61 @@ function renderState() {
   if (cameraStatusEl) {
     if (telemetryState.cameraStatus === 'ACTIVE') {
       if (telemetryState.sensorIncongruence) {
-        cameraStatusEl.textContent = '▲ CAM INCONGRUENT';
+        cameraStatusEl.textContent = '▲ CHECK CAMERA';
         cameraStatusEl.className = 'pill-chip pill-danger';
       } else if (telemetryState.calibrationState === 'CALIBRATED') {
-        cameraStatusEl.textContent = '● OPTICS: CALIBRATED';
+        cameraStatusEl.textContent = '● CAMERA READY';
         cameraStatusEl.className = 'pill-chip pill-safe';
       } else {
-        cameraStatusEl.textContent = '○ OPTICS: CALIBRATING';
+        cameraStatusEl.textContent = '○ SETTING UP CAMERA...';
         cameraStatusEl.className = 'pill-chip pill-warn';
       }
     } else if (telemetryState.cameraStatus === 'DENIED' || telemetryState.cameraStatus === 'ERROR') {
-      cameraStatusEl.textContent = '○ CAM BLOCKED';
+      cameraStatusEl.textContent = '○ CAMERA BLOCKED';
       cameraStatusEl.className = 'pill-chip pill-warn';
+    } else if (telemetryState.cameraStatus === 'REPLAY') {
+      cameraStatusEl.textContent = '● REPLAY VIDEO';
+      cameraStatusEl.className = 'pill-chip pill-safe';
     } else {
-      cameraStatusEl.textContent = '● DEMO STREAM';
+      cameraStatusEl.textContent = '● DEMO VIDEO';
       cameraStatusEl.className = 'pill-chip pill-sim';
     }
   }
 
-  // 8. Dynamic Alert Ribbon
+  // 8. Dynamic Alert Ribbon (Plain-English, Direct Action Warnings)
   if (alertBannerEl && alertMessageEl) {
     const level = telemetryState.alertLevel;
     alertBannerEl.className = `alert-ribbon level-${level.toLowerCase()}`;
 
     switch (level) {
       case 'DANGER_COLLISION':
-        alertMessageEl.textContent = `BRAKE IMMINENT — TTC ${telemetryState.timeToCollisionSec}s`;
+        alertMessageEl.textContent = `BRAKE NOW!`;
         break;
       case 'DANGER_OVERDRIVING_VIS':
-        alertMessageEl.textContent = `REDUCE SPEED — SIGHTLINE RESTRICTED (${telemetryState.visibilityRangeM}m)`;
+        alertMessageEl.textContent = `SLOW DOWN — LOW VISIBILITY`;
         break;
       case 'CAUTION':
         if (telemetryState.targetBrakeLightsDetected) {
-          alertMessageEl.textContent = `LEAD VEHICLE BRAKING`;
+          alertMessageEl.textContent = `CAR AHEAD BRAKING`;
         } else if (telemetryState.targetClosingSpeedMph > 5) {
-          alertMessageEl.textContent = `HEADWAY ALERT — CLOSING`;
+          alertMessageEl.textContent = `TOO CLOSE — SLOW DOWN`;
         } else {
-          alertMessageEl.textContent = `HEADWAY CAUTION`;
+          alertMessageEl.textContent = `KEEP SAFE DISTANCE`;
         }
         break;
       default:
         if (telemetryState.ldwState === 'DEPARTURE_LEFT') {
           alertBannerEl.className = 'alert-ribbon level-caution';
-          alertMessageEl.textContent = `◄ LANE DRIFT LEFT`;
+          alertMessageEl.textContent = `◄ DRIFTING LEFT`;
         } else if (telemetryState.ldwState === 'DEPARTURE_RIGHT') {
           alertBannerEl.className = 'alert-ribbon level-caution';
-          alertMessageEl.textContent = `LANE DRIFT RIGHT ►`;
+          alertMessageEl.textContent = `DRIFTING RIGHT ►`;
         } else if (telemetryState.leadVehicleMoved) {
           alertBannerEl.className = 'alert-ribbon level-lvda';
-          alertMessageEl.textContent = `LEAD VEHICLE MOVING`;
+          alertMessageEl.textContent = `CAR AHEAD MOVING — GO`;
         } else if (telemetryState.coastingRecommendation) {
           alertBannerEl.className = 'alert-ribbon level-coasting';
-          alertMessageEl.textContent = `COAST TO CONSERVE`;
+          alertMessageEl.textContent = `RELEASE GAS TO COAST`;
         } else {
           alertMessageEl.textContent = ``;
         }
