@@ -50,6 +50,55 @@ function initVisionWorker() {
 }
 
 /**
+ * Applies automotive-grade camera constraints (infinity focus & road exposure)
+ * Prevents mobile cameras from hunting on windshield raindrops, dust, or glare.
+ */
+export async function applyAutomotiveHardwareConstraints(track) {
+  if (!track || typeof track.getCapabilities !== 'function' || typeof track.applyConstraints !== 'function') {
+    return;
+  }
+  try {
+    const caps = track.getCapabilities();
+    const advanced = {};
+
+    // 1. Auto-Focus: Continuous or lock to optical infinity
+    if (caps.focusMode && Array.isArray(caps.focusMode)) {
+      if (caps.focusMode.includes('continuous')) {
+        advanced.focusMode = 'continuous';
+      }
+    }
+    if (caps.focusDistance && typeof caps.focusDistance.min === 'number') {
+      // 0.0 diopters = optical infinity on Android Camera2 API
+      advanced.focusDistance = caps.focusDistance.min;
+    }
+
+    // 2. Auto-Exposure: Continuous road-weighted metering
+    if (caps.exposureMode && Array.isArray(caps.exposureMode)) {
+      if (caps.exposureMode.includes('continuous')) {
+        advanced.exposureMode = 'continuous';
+      }
+    }
+    if (caps.exposureCompensation && typeof caps.exposureCompensation.min === 'number') {
+      const targetEv = 0;
+      advanced.exposureCompensation = Math.max(caps.exposureCompensation.min, Math.min(caps.exposureCompensation.max, targetEv));
+    }
+
+    // 3. White Balance: Continuous daylight-balanced
+    if (caps.whiteBalanceMode && Array.isArray(caps.whiteBalanceMode)) {
+      if (caps.whiteBalanceMode.includes('continuous')) {
+        advanced.whiteBalanceMode = 'continuous';
+      }
+    }
+
+    if (Object.keys(advanced).length > 0) {
+      await track.applyConstraints({ advanced: [advanced] });
+    }
+  } catch (err) {
+    console.warn('Automotive hardware constraints not applied:', err.message);
+  }
+}
+
+/**
  * Initializes mobile camera stream and in-memory sampling canvas
  */
 export async function initCamera() {
@@ -92,9 +141,26 @@ export async function initCamera() {
     return;
   }
 
-  // 4. Multi-tier constraints fallback (Rear Camera -> User Camera -> Generic Video)
+  // 4. Multi-tier constraints fallback (1080p Rear Camera -> 720p Rear Camera -> Generic Video)
   const constraintTiers = [
-    { video: { facingMode: { ideal: 'environment' } }, audio: false },
+    {
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1920, min: 1280 },
+        height: { ideal: 1080, min: 720 },
+        frameRate: { ideal: 30, max: 60 }
+      },
+      audio: false
+    },
+    {
+      video: {
+        facingMode: { ideal: 'environment' },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 30 }
+      },
+      audio: false
+    },
     { video: { facingMode: 'environment' }, audio: false },
     { video: { facingMode: 'user' }, audio: false },
     { video: true, audio: false }
@@ -119,6 +185,12 @@ export async function initCamera() {
     enableSimFallback('DENIED', errText);
     isInitializing = false;
     return;
+  }
+
+  // Apply automotive hardware constraints (infinity focus & road exposure) where supported
+  const videoTrack = stream.getVideoTracks()[0];
+  if (videoTrack) {
+    await applyAutomotiveHardwareConstraints(videoTrack);
   }
 
   try {

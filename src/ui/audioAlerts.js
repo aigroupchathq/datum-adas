@@ -10,6 +10,9 @@ let audioCtx = null;
 let isAudioMuted = false;
 
 const AUDIO_COOLDOWN_MS = 2500; // Mandatory lockout to avoid alarm fatigue
+const CAUTION_COOLDOWN_MS = 4000; // Polite spacing between caution prompts
+const ALERT_LATCH_MS = 800; // Minimum 800ms alert latch to prevent audio stutter
+let lastAlertStartTs = 0;
 
 /**
  * Initializes and unlocks AudioContext upon user gesture
@@ -46,9 +49,15 @@ export function evaluateAudioAlert(alertLevel, ldwState, rumbleSide, leadVehicle
 
   const now = Date.now();
 
-  // Priority 1: Imminent Collision Hazard (Emergency Lockout)
+  // Low-speed creep and nominal cruise are completely silent (zero cockpit noise)
+  if (alertLevel === 'CREEPING' || alertLevel === 'SAFE') {
+    return;
+  }
+
+  // Priority 1: Imminent Collision Hazard (Emergency Lockout with 800ms latch)
   if (alertLevel === 'DANGER_COLLISION') {
-    if (now - telemetryState.lastAudioAlertTs >= AUDIO_COOLDOWN_MS) {
+    if (now - (telemetryState.lastAudioAlertTs || 0) >= AUDIO_COOLDOWN_MS) {
+      lastAlertStartTs = now;
       playCollisionAlarm();
       telemetryState.lastAudioAlertTs = now;
     }
@@ -57,7 +66,8 @@ export function evaluateAudioAlert(alertLevel, ldwState, rumbleSide, leadVehicle
 
   // Priority 2: Sightline Overdriving Hazard
   if (alertLevel === 'DANGER_OVERDRIVING_VIS') {
-    if (now - telemetryState.lastAudioAlertTs >= AUDIO_COOLDOWN_MS) {
+    if (now - (telemetryState.lastAudioAlertTs || 0) >= AUDIO_COOLDOWN_MS) {
+      lastAlertStartTs = now;
       playOverdrivingChime();
       telemetryState.lastAudioAlertTs = now;
     }
@@ -66,7 +76,8 @@ export function evaluateAudioAlert(alertLevel, ldwState, rumbleSide, leadVehicle
 
   // Priority 3: Lane Departure Warning Rumble Strip
   if (ldwState === 'DEPARTURE_LEFT' || ldwState === 'DEPARTURE_RIGHT') {
-    if (now - telemetryState.lastAudioAlertTs >= AUDIO_COOLDOWN_MS) {
+    if (now - (telemetryState.lastAudioAlertTs || 0) >= AUDIO_COOLDOWN_MS) {
+      lastAlertStartTs = now;
       playRumbleStrip(rumbleSide || (ldwState === 'DEPARTURE_LEFT' ? 'LEFT' : 'RIGHT'));
       telemetryState.lastAudioAlertTs = now;
     }
@@ -75,8 +86,48 @@ export function evaluateAudioAlert(alertLevel, ldwState, rumbleSide, leadVehicle
 
   // Priority 4: Lead Vehicle Departure Prompter Chime (Subaru EyeSight / Honda Sensing Standard)
   if (leadVehicleMoved) {
-    playLeadStartChime();
+    if (now - lastAlertStartTs >= ALERT_LATCH_MS) {
+      lastAlertStartTs = now;
+      playLeadStartChime();
+    }
+    return;
   }
+
+  // Priority 5: Tiered Polite Caution Chime (Close Headway / Approaching)
+  if (alertLevel === 'CAUTION') {
+    const lastCaution = telemetryState.lastCautionAlertTs || 0;
+    if (now - lastCaution >= CAUTION_COOLDOWN_MS && now - lastAlertStartTs >= ALERT_LATCH_MS) {
+      lastAlertStartTs = now;
+      telemetryState.lastCautionAlertTs = now;
+      playCautionChime();
+    }
+  }
+}
+
+/**
+ * Polite two-tone chime (440 Hz -> 660 Hz) for situational caution
+ */
+function playCautionChime() {
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume().catch(() => {});
+  }
+
+  const startTime = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(440, startTime);
+  osc.frequency.setValueAtTime(660, startTime + 0.12);
+
+  gain.gain.setValueAtTime(0.25, startTime);
+  gain.gain.exponentialRampToValueAtTime(0.005, startTime + 0.28);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  osc.start(startTime);
+  osc.stop(startTime + 0.28);
 }
 
 /**

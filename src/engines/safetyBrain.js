@@ -70,40 +70,55 @@ export function evaluateSafety(state = {}) {
   }
 
   // -------------------------------------------------------------
+  // 2b. Automotive Operational Gating Envelopes (ISO 15623 / UNECE R152)
+  // -------------------------------------------------------------
+  const isStandstill = speedMps < 0.28; // < 1 km/h: stationary hold at red light / traffic queue
+  const isLowSpeedCreep = (speedMps < 2.2 || effectiveDistanceM < 3.5) && closingSpeedMph <= 3.0; // < 8 km/h or < 3.5m with low closing delta (traffic crawl)
+
+  // Lateral Motion & Cross-Traffic Rejection (pedestrians/bikes crossing or perpendicular turns)
+  const isCrossTraffic = (typeof s.targetLateralVelocityMps === 'number' && Math.abs(s.targetLateralVelocityMps) > 1.5 * Math.max(0.5, Math.abs(closingSpeedMps))) || Boolean(s.isCrossTraffic);
+
+  // -------------------------------------------------------------
   // 3. ISO 15623 & Euro NCAP Threat Classification
   // -------------------------------------------------------------
   // Case A: Imminent Collision Threat (DANGER_COLLISION)
-  // 1) Time-to-Collision is critically short (<= 2.4s) while closing
-  const isCriticalTtc = timeToCollisionSec <= 2.4 && (closingSpeedMph > 1.0 || speedMps > 1.5);
+  // 1) Time-to-Collision is critically short (<= 2.4s) while closing at road speed or high delta
+  const isCriticalTtc = !isStandstill && !isLowSpeedCreep && !isCrossTraffic && timeToCollisionSec <= 2.4 && (closingSpeedMph > 1.0 || speedMps > 1.5);
 
   // 2) Stationary/stopped lead car inside full stopping envelope (CCRs)
-  const isStationaryHazard = closingSpeedMph <= 1.0 && speedMps > 4.5 && effectiveDistanceM <= stoppingDistanceM;
+  const isStationaryHazard = !isStandstill && !isLowSpeedCreep && !isCrossTraffic && closingSpeedMph <= 1.0 && speedMps > 2.5 && effectiveDistanceM <= stoppingDistanceM;
 
   // 3) High closing speed (Delta-v > 15 mph) inside physical stopping distance (CCRm/CCRb)
-  const isHighClosingSpeedHazard = closingSpeedMph > 15 && effectiveDistanceM <= stoppingDistanceM;
+  const isHighClosingSpeedHazard = !isCrossTraffic && closingSpeedMph > 15 && effectiveDistanceM <= stoppingDistanceM;
 
-  const isCollisionThreat = isCriticalTtc || isStationaryHazard || isHighClosingSpeedHazard;
+  // Low-speed emergency threat: approaching obstacle at high closing rate (> 5 mph) at close range (< 3m)
+  const isLowSpeedUrgentImpact = !isCrossTraffic && closingSpeedMph > 5.0 && effectiveDistanceM < 3.0 && timeToCollisionSec <= 1.5;
+
+  const isCollisionThreat = isCriticalTtc || isStationaryHazard || isHighClosingSpeedHazard || isLowSpeedUrgentImpact;
 
   // Case B: Sightline Overdriving Threat (DANGER_OVERDRIVING_VIS)
   // Stopping distance exceeds visible sightline while traveling at road speeds (> 15 mph)
   const isOverdrivingVisibility = stoppingDistanceM > visibilityRangeM && speedMps > 6.7;
 
-  // Case C: Situational Awareness Pre-warning (CAUTION)
+  // Case C: Situational Awareness Pre-warning (CAUTION / CREEPING)
   // - Headway margin is compressed (target inside reaction zone)
   // - Time to collision is moderate (<= 4.0s)
   // - Approaching visibility sightline limit (within 85%)
   // - Lead vehicle active brake lights detected
-  const isHeadwayCompressed = targetDistanceM <= reactionDistanceM && speedMps > 3.0;
-  const isModerateTtc = timeToCollisionSec <= 4.0 && (closingSpeedMph > 1.0 || speedMps > 1.5);
+  const isHeadwayCompressed = !isStandstill && !isCrossTraffic && targetDistanceM <= reactionDistanceM && speedMps > 3.0;
+  const isModerateTtc = !isStandstill && !isCrossTraffic && timeToCollisionSec <= 4.0 && (closingSpeedMph > 1.0 || speedMps > 1.5);
   const isNearSightlineLimit = stoppingDistanceM > visibilityRangeM * 0.85 && speedMps > 6.7;
-  const isBrakeLightCaution = brakeLights && targetDistanceM < 65;
+  const isBrakeLightCaution = !isStandstill && !isCrossTraffic && brakeLights && targetDistanceM < 65;
 
   const isCautionThreat = isHeadwayCompressed || isModerateTtc || isNearSightlineLimit || isBrakeLightCaution;
 
   // -------------------------------------------------------------
   // 4. Debounce Confirmation Logic (3-Frame Confirmation)
   // -------------------------------------------------------------
-  if (isCollisionThreat || isOverdrivingVisibility) {
+  if (isStandstill) {
+    // Standstill Hold: clamp debounce counter to zero; no false alarms while stopped
+    consecutiveHazardFrames = 0;
+  } else if (isCollisionThreat || isOverdrivingVisibility) {
     consecutiveHazardFrames++;
   } else {
     consecutiveHazardFrames = Math.max(0, consecutiveHazardFrames - 1);
@@ -119,6 +134,8 @@ export function evaluateSafety(state = {}) {
     }
   } else if (isCollisionThreat || isOverdrivingVisibility || isCautionThreat) {
     alertLevel = 'CAUTION';
+  } else if (isLowSpeedCreep && effectiveDistanceM < 4.0) {
+    alertLevel = 'CREEPING';
   }
 
   return {
@@ -130,6 +147,8 @@ export function evaluateSafety(state = {}) {
     isRssCompliant,
     timeToCollisionSec,
     consecutiveHazardFrames,
-    alertLevel
+    alertLevel,
+    isLowSpeedCreep,
+    isStandstill
   };
 }

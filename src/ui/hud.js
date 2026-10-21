@@ -20,6 +20,7 @@ let speedValEl = null;
 let speedUnitLabelEl = null;
 let speedStatusEl = null;
 let targetDistValEl = null;
+let activeDragTarget = null; // 'HORIZON' | 'HOOD' | null
 
 export function setHorizonY(y) {
   const val = Math.max(20, Math.min(90, parseInt(y, 10)));
@@ -240,6 +241,70 @@ export function initHud() {
   const btnDrawerReplay = document.getElementById('btn-drawer-replay');
   if (btnDrawerReplay && inputReplayFile) {
     btnDrawerReplay.addEventListener('click', () => inputReplayFile.click());
+  }
+
+  // Interactive On-Screen Horizon & Hood Line Drag Alignment
+  if (hudContainerEl) {
+    hudContainerEl.addEventListener('pointerdown', (e) => {
+      if (e.target.closest('button, a, input, select, #sim-drawer, #hud-nav-card, #hud-replay-bar, .metric-card, .dock-btn')) {
+        return;
+      }
+      const rect = hudContainerEl.getBoundingClientRect();
+      const pointerY = e.clientY - rect.top;
+      const h = rect.height;
+      if (h <= 0) return;
+
+      const normHorizonY = (typeof telemetryState.horizonY === 'number') ? telemetryState.horizonY : 54;
+      const normHoodY = (typeof telemetryState.hoodCutoffY === 'number') ? telemetryState.hoodCutoffY : 98;
+      const pitchOffsetPx = (telemetryState.pitchDeg || 0) * 4.5;
+      const horizonPx = (h * (normHorizonY / 120.0)) + pitchOffsetPx;
+      const hoodPx = h * (normHoodY / 120.0);
+
+      if (Math.abs(pointerY - horizonPx) < 35) {
+        activeDragTarget = 'HORIZON';
+        try { hudContainerEl.setPointerCapture(e.pointerId); } catch (err) {}
+      } else if (Math.abs(pointerY - hoodPx) < 35) {
+        activeDragTarget = 'HOOD';
+        try { hudContainerEl.setPointerCapture(e.pointerId); } catch (err) {}
+      }
+    });
+
+    hudContainerEl.addEventListener('pointermove', (e) => {
+      if (!activeDragTarget) return;
+      const rect = hudContainerEl.getBoundingClientRect();
+      const pointerY = e.clientY - rect.top;
+      const h = rect.height;
+      if (h <= 0) return;
+
+      const normRow = Math.round((pointerY / h) * 120);
+
+      if (activeDragTarget === 'HORIZON') {
+        const clampedHorizon = Math.max(25, Math.min(80, normRow));
+        telemetryState.horizonY = clampedHorizon;
+        try { localStorage.setItem('datum_horizon_y', clampedHorizon.toString()); } catch (err) {}
+        const sliderH = document.getElementById('slider-horizon-height');
+        const labelH = document.getElementById('val-horizon-height');
+        if (sliderH) sliderH.value = clampedHorizon;
+        if (labelH) labelH.textContent = `${clampedHorizon}px`;
+      } else if (activeDragTarget === 'HOOD') {
+        const clampedHood = Math.max(65, Math.min(115, normRow));
+        telemetryState.hoodCutoffY = clampedHood;
+        try { localStorage.setItem('datum_hood_cutoff', clampedHood.toString()); } catch (err) {}
+        const sliderCut = document.getElementById('slider-hood-cutoff');
+        const labelCut = document.getElementById('val-hood-cutoff');
+        if (sliderCut) sliderCut.value = clampedHood;
+        if (labelCut) labelCut.textContent = `${clampedHood}px`;
+      }
+    });
+
+    const endDrag = (e) => {
+      if (activeDragTarget) {
+        activeDragTarget = null;
+        try { hudContainerEl.releasePointerCapture(e.pointerId); } catch (err) {}
+      }
+    };
+    hudContainerEl.addEventListener('pointerup', endDrag);
+    hudContainerEl.addEventListener('pointercancel', endDrag);
   }
 
   // Replay Floating Bar Controls
@@ -496,6 +561,10 @@ function renderState() {
           alertMessageEl.textContent = `KEEP SAFE DISTANCE`;
         }
         break;
+      case 'CREEPING':
+        alertBannerEl.className = 'alert-ribbon level-lvda';
+        alertMessageEl.textContent = `CREEPING — ${telemetryState.targetDistanceM}m`;
+        break;
       default:
         if (telemetryState.ldwState === 'DEPARTURE_LEFT') {
           alertBannerEl.className = 'alert-ribbon level-caution';
@@ -711,9 +780,9 @@ function renderRoadOptics() {
   arCtx.lineTo(w * 0.80, horizonPx);
   arCtx.stroke();
 
-  // Visual Calibration Guides (Active during calibration or drawer inspection)
+  // Visual Calibration Guides (Active during calibration, drag alignment, or drawer inspection)
   const isDrawerOpen = typeof document !== 'undefined' && document.getElementById('sim-drawer')?.classList.contains('open');
-  if (isDrawerOpen) {
+  if (isDrawerOpen || activeDragTarget !== null || telemetryState.calibrationState === 'CALIBRATING') {
     // Green Vanishing Horizon Guide
     arCtx.save();
     arCtx.strokeStyle = 'rgba(48, 209, 88, 0.75)';
