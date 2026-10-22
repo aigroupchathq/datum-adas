@@ -22,6 +22,29 @@ let speedStatusEl = null;
 let targetDistValEl = null;
 let activeDragTarget = null; // 'VP' | 'HOOD' | null
 
+// Critically-Damped Render Smoothing Filters (Temporal EMA)
+let renderVpX = null;
+let renderHorizonPx = null;
+let renderHoodPx = null;
+let renderRollDeg = 0;
+
+// Smooth Lead Target Tracking Filter (Laser Lock)
+let smoothTarget = {
+  active: false,
+  x: 0,
+  y: 0,
+  w: 0,
+  h: 0,
+  alpha: 0,
+  distM: 0
+};
+
+// Automotive Alert Hysteresis & Minimum Dwell State
+let currentDisplayedAlertLevel = 'SAFE';
+let currentDisplayedAlertText = '';
+let alertDwellUntilTs = 0;
+const MIN_ALERT_DWELL_MS = 1400; // Hold active alerts for 1.4s minimum to prevent flicker
+
 export function setVanishingX(x) {
   const val = Math.max(20, Math.min(140, parseInt(x, 10)));
   telemetryState.vanishingX = val;
@@ -410,6 +433,93 @@ function renderLoop() {
   requestAnimationFrame(renderLoop);
 }
 
+function getRawTargetAlert() {
+  const level = telemetryState.alertLevel;
+  if (level === 'DANGER_COLLISION') {
+    return { level: 'DANGER_COLLISION', text: 'BRAKE NOW' };
+  }
+  if (level === 'DANGER_OVERDRIVING_VIS') {
+    return { level: 'DANGER_OVERDRIVING_VIS', text: 'SLOW DOWN — LOW VISIBILITY' };
+  }
+  if (level === 'CAUTION') {
+    let msg = 'KEEP SAFE DISTANCE';
+    if (telemetryState.targetBrakeLightsDetected) {
+      msg = 'CAR AHEAD BRAKING';
+    } else if (telemetryState.targetClosingSpeedMph > 5) {
+      msg = 'TOO CLOSE — SLOW DOWN';
+    }
+    return { level: 'CAUTION', text: msg };
+  }
+  if (level === 'CREEPING') {
+    return { level: 'CREEPING', text: `CREEPING — ${telemetryState.targetDistanceM}m` };
+  }
+  if (telemetryState.ldwState === 'DEPARTURE_LEFT') {
+    return { level: 'CAUTION', text: '◄ DRIFTING LEFT' };
+  }
+  if (telemetryState.ldwState === 'DEPARTURE_RIGHT') {
+    return { level: 'CAUTION', text: 'DRIFTING RIGHT ►' };
+  }
+  if (telemetryState.leadVehicleMoved) {
+    return { level: 'LVDA', text: 'CAR AHEAD MOVING — GO' };
+  }
+  if (telemetryState.coastingRecommendation) {
+    return { level: 'COASTING', text: 'RELEASE GAS TO COAST' };
+  }
+  return { level: 'SAFE', text: '' };
+}
+
+function getAlertPriority(lvl) {
+  switch (lvl) {
+    case 'DANGER_COLLISION':
+    case 'DANGER_OVERDRIVING_VIS':
+      return 3;
+    case 'CAUTION':
+      return 2;
+    case 'LVDA':
+    case 'COASTING':
+    case 'CREEPING':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+function updateAlertRibbon(now) {
+  if (!alertBannerEl || !alertMessageEl) return;
+
+  const target = getRawTargetAlert();
+  const targetPri = getAlertPriority(target.level);
+  const currentPri = getAlertPriority(currentDisplayedAlertLevel);
+
+  if (targetPri > currentPri) {
+    // Immediate escalation for safety
+    currentDisplayedAlertLevel = target.level;
+    currentDisplayedAlertText = target.text;
+    alertDwellUntilTs = now + MIN_ALERT_DWELL_MS;
+  } else if (targetPri === currentPri && targetPri > 0) {
+    // Same priority: update message and maintain dwell
+    currentDisplayedAlertLevel = target.level;
+    if (target.text) currentDisplayedAlertText = target.text;
+    alertDwellUntilTs = Math.max(alertDwellUntilTs, now + 800);
+  } else if (targetPri < currentPri) {
+    // De-escalation: hold active alert until dwell time expires
+    if (now >= alertDwellUntilTs) {
+      currentDisplayedAlertLevel = target.level;
+      if (target.text) {
+        currentDisplayedAlertText = target.text;
+      }
+    }
+  }
+
+  // Update DOM presentation with smooth CSS transitions
+  if (currentDisplayedAlertLevel !== 'SAFE' && currentDisplayedAlertText) {
+    alertMessageEl.textContent = currentDisplayedAlertText;
+    alertBannerEl.className = `alert-ribbon active level-${currentDisplayedAlertLevel.toLowerCase()}`;
+  } else {
+    alertBannerEl.className = 'alert-ribbon';
+  }
+}
+
 function renderState() {
   const isKmh = telemetryState.speedUnit === 'KMH';
   const currentSpeed = isKmh
@@ -581,50 +691,8 @@ function renderState() {
     }
   }
 
-  // 8. Dynamic Alert Ribbon (Plain-English, Direct Action Warnings)
-  if (alertBannerEl && alertMessageEl) {
-    const level = telemetryState.alertLevel;
-    alertBannerEl.className = `alert-ribbon level-${level.toLowerCase()}`;
-
-    switch (level) {
-      case 'DANGER_COLLISION':
-        alertMessageEl.textContent = `BRAKE NOW!`;
-        break;
-      case 'DANGER_OVERDRIVING_VIS':
-        alertMessageEl.textContent = `SLOW DOWN — LOW VISIBILITY`;
-        break;
-      case 'CAUTION':
-        if (telemetryState.targetBrakeLightsDetected) {
-          alertMessageEl.textContent = `CAR AHEAD BRAKING`;
-        } else if (telemetryState.targetClosingSpeedMph > 5) {
-          alertMessageEl.textContent = `TOO CLOSE — SLOW DOWN`;
-        } else {
-          alertMessageEl.textContent = `KEEP SAFE DISTANCE`;
-        }
-        break;
-      case 'CREEPING':
-        alertBannerEl.className = 'alert-ribbon level-lvda';
-        alertMessageEl.textContent = `CREEPING — ${telemetryState.targetDistanceM}m`;
-        break;
-      default:
-        if (telemetryState.ldwState === 'DEPARTURE_LEFT') {
-          alertBannerEl.className = 'alert-ribbon level-caution';
-          alertMessageEl.textContent = `◄ DRIFTING LEFT`;
-        } else if (telemetryState.ldwState === 'DEPARTURE_RIGHT') {
-          alertBannerEl.className = 'alert-ribbon level-caution';
-          alertMessageEl.textContent = `DRIFTING RIGHT ►`;
-        } else if (telemetryState.leadVehicleMoved) {
-          alertBannerEl.className = 'alert-ribbon level-lvda';
-          alertMessageEl.textContent = `CAR AHEAD MOVING — GO`;
-        } else if (telemetryState.coastingRecommendation) {
-          alertBannerEl.className = 'alert-ribbon level-coasting';
-          alertMessageEl.textContent = `RELEASE GAS TO COAST`;
-        } else {
-          alertMessageEl.textContent = ``;
-        }
-        break;
-    }
-  }
+  // 8. Dynamic Alert Ribbon with Automotive Dwell Hysteresis (Eliminates Flickering)
+  updateAlertRibbon(performance.now());
 
   // 9. Eco-Pacing & Fuel ROI Metric Badge
   if (ecoBadgeEl) {
@@ -795,9 +863,30 @@ function renderRoadOptics() {
   const vpXFraction = normVpX / 160.0;
   const pitchOffsetPx = (telemetryState.pitchDeg || 0) * 4.5;
 
-  const horizonPx = Math.max(h * 0.20, Math.min(h * 0.70, (h * horizonFraction) + pitchOffsetPx));
-  const hoodPx = Math.max(horizonPx + 40, Math.min(h, h * hoodFraction));
-  const vpX = Math.max(w * 0.15, Math.min(w * 0.85, w * vpXFraction));
+  const targetHorizonPx = Math.max(h * 0.20, Math.min(h * 0.70, (h * horizonFraction) + pitchOffsetPx));
+  const targetHoodPx = Math.max(targetHorizonPx + 40, Math.min(h, h * hoodFraction));
+  const targetVpX = Math.max(w * 0.15, Math.min(w * 0.85, w * vpXFraction));
+  const targetRollDeg = Math.max(-4.0, Math.min(4.0, telemetryState.rollDeg || 0));
+
+  // Critically damped temporal smoothing (alpha = 0.14 at 60fps)
+  // Absorbs high-frequency road vibrations, bumps, and sensor noise for a confident, steady visual anchor
+  if (activeDragTarget !== null || renderVpX === null) {
+    renderVpX = targetVpX;
+    renderHorizonPx = targetHorizonPx;
+    renderHoodPx = targetHoodPx;
+    renderRollDeg = targetRollDeg;
+  } else {
+    const alpha = 0.14;
+    renderVpX += (targetVpX - renderVpX) * alpha;
+    renderHorizonPx += (targetHorizonPx - renderHorizonPx) * alpha;
+    renderHoodPx += (targetHoodPx - renderHoodPx) * alpha;
+    renderRollDeg += (targetRollDeg - renderRollDeg) * alpha;
+  }
+
+  const horizonPx = renderHorizonPx;
+  const hoodPx = renderHoodPx;
+  const vpX = renderVpX;
+  const safeRollDeg = renderRollDeg;
   const H_CAM = Math.max(0.8, telemetryState.cameraHeightM || 1.25);
 
   let isDanger = telemetryState.alertLevel === 'DANGER_COLLISION';
@@ -808,8 +897,7 @@ function renderRoadOptics() {
   // All road lines, horizon, and transverse distance gates rotate in unison
   // -------------------------------------------------------------
   arCtx.save();
-  const safeRollDeg = Math.max(-4.0, Math.min(4.0, telemetryState.rollDeg || 0));
-  if (Math.abs(safeRollDeg) > 0.2) {
+  if (Math.abs(safeRollDeg) > 0.15) {
     arCtx.translate(vpX, horizonPx);
     arCtx.rotate((safeRollDeg * Math.PI) / 180);
     arCtx.translate(-vpX, -horizonPx);
@@ -908,16 +996,54 @@ function renderRoadOptics() {
   const xMidL = vpX + ((relCarLeftM  + curveMidOffsetM) * F_OPT_X) / trackMidZ;
   const xMidR = vpX + ((relCarRightM + curveMidOffsetM) * F_OPT_X) / trackMidZ;
 
-  arCtx.strokeStyle = isDanger ? 'rgba(255, 59, 48, 0.40)' : (isCaution ? 'rgba(255, 149, 0, 0.30)' : 'rgba(255, 209, 89, 0.18)');
-  arCtx.lineWidth = 1.0;
+  // 1. Subtle Ground-Plane Carpet (Mercedes / Tesla FSD standard: provides instant visual confidence)
+  arCtx.save();
+  const carpetGrad = arCtx.createLinearGradient(0, trackNearY, 0, trackFarY);
+  if (isDanger) {
+    carpetGrad.addColorStop(0, 'rgba(255, 59, 48, 0.15)');
+    carpetGrad.addColorStop(0.5, 'rgba(255, 59, 48, 0.05)');
+    carpetGrad.addColorStop(1, 'rgba(255, 59, 48, 0.0)');
+  } else if (isCaution) {
+    carpetGrad.addColorStop(0, 'rgba(255, 149, 0, 0.12)');
+    carpetGrad.addColorStop(0.5, 'rgba(255, 149, 0, 0.04)');
+    carpetGrad.addColorStop(1, 'rgba(255, 149, 0, 0.0)');
+  } else {
+    carpetGrad.addColorStop(0, 'rgba(245, 215, 130, 0.055)');
+    carpetGrad.addColorStop(0.45, 'rgba(245, 215, 130, 0.020)');
+    carpetGrad.addColorStop(1, 'rgba(245, 215, 130, 0.0)');
+  }
+  arCtx.fillStyle = carpetGrad;
   arCtx.beginPath();
-  // Left wheel-track: smooth quadratic Bezier from near to far through mid control point
   arCtx.moveTo(xNearL, trackNearY);
   arCtx.quadraticCurveTo(xMidL, trackMidY, xFarL, trackFarY);
-  // Right wheel-track
+  arCtx.lineTo(xFarR, trackFarY);
+  arCtx.quadraticCurveTo(xMidR, trackMidY, xNearR, trackNearY);
+  arCtx.closePath();
+  arCtx.fill();
+  arCtx.restore();
+
+  // 2. Confident Dual-Pass Wheel Tracks (Outer penumbra + crisp inner track)
+  arCtx.save();
+  // Soft outer penumbra
+  arCtx.strokeStyle = isDanger ? 'rgba(255, 59, 48, 0.14)' : (isCaution ? 'rgba(255, 149, 0, 0.12)' : 'rgba(245, 215, 130, 0.08)');
+  arCtx.lineWidth = 3.2;
+  arCtx.beginPath();
+  arCtx.moveTo(xNearL, trackNearY);
+  arCtx.quadraticCurveTo(xMidL, trackMidY, xFarL, trackFarY);
   arCtx.moveTo(xNearR, trackNearY);
   arCtx.quadraticCurveTo(xMidR, trackMidY, xFarR, trackFarY);
   arCtx.stroke();
+
+  // Crisp inner track
+  arCtx.strokeStyle = isDanger ? 'rgba(255, 59, 48, 0.65)' : (isCaution ? 'rgba(255, 149, 0, 0.50)' : 'rgba(245, 215, 130, 0.32)');
+  arCtx.lineWidth = 1.4;
+  arCtx.beginPath();
+  arCtx.moveTo(xNearL, trackNearY);
+  arCtx.quadraticCurveTo(xMidL, trackMidY, xFarL, trackFarY);
+  arCtx.moveTo(xNearR, trackNearY);
+  arCtx.quadraticCurveTo(xMidR, trackMidY, xFarR, trackFarY);
+  arCtx.stroke();
+  arCtx.restore();
 
   // B. Highway Dashed Lane Stripes (Golden / Yellow Luxury Automotive Palette)
   // Standard highway geometry: 3.6m lane width (-1.8m left, +1.8m right)
@@ -965,36 +1091,36 @@ function renderRoadOptics() {
     const xR2 = vpX + ((relLaneRightM + curveOffL2) * F_OPT_X) / clampedZ2;
 
 
-    // Golden / Yellow luxury palette with active hazard escalation
-    let strokeGoldL = `rgba(255, 209, 89, ${0.92 * fade})`;
-    let coreGoldL = `rgba(255, 242, 185, ${0.70 * fade})`;
-    let shadowGoldL = 'rgba(255, 193, 7, 0.45)';
+    // Golden / Platinum luxury palette with refined diffusion (no harsh neon glare)
+    let strokeGoldL = `rgba(245, 212, 120, ${0.85 * fade})`;
+    let coreGoldL = `rgba(255, 248, 215, ${0.60 * fade})`;
+    let shadowGoldL = 'rgba(245, 190, 60, 0.20)';
 
-    let strokeGoldR = `rgba(255, 209, 89, ${0.92 * fade})`;
-    let coreGoldR = `rgba(255, 242, 185, ${0.70 * fade})`;
-    let shadowGoldR = 'rgba(255, 193, 7, 0.45)';
+    let strokeGoldR = `rgba(245, 212, 120, ${0.85 * fade})`;
+    let coreGoldR = `rgba(255, 248, 215, ${0.60 * fade})`;
+    let shadowGoldR = 'rgba(245, 190, 60, 0.20)';
 
     const isLdwLeft = telemetryState.ldwState === 'DEPARTURE_LEFT';
     const isLdwRight = telemetryState.ldwState === 'DEPARTURE_RIGHT';
 
     if (isDanger) {
-      strokeGoldL = strokeGoldR = `rgba(255, 59, 48, ${0.95 * fade})`;
-      coreGoldL = coreGoldR = `rgba(255, 180, 175, ${0.70 * fade})`;
-      shadowGoldL = shadowGoldR = 'rgba(255, 59, 48, 0.85)';
+      strokeGoldL = strokeGoldR = `rgba(255, 69, 58, ${0.90 * fade})`;
+      coreGoldL = coreGoldR = `rgba(255, 180, 175, ${0.65 * fade})`;
+      shadowGoldL = shadowGoldR = 'rgba(255, 69, 58, 0.35)';
     } else if (isCaution) {
-      strokeGoldL = strokeGoldR = `rgba(255, 149, 0, ${0.95 * fade})`;
-      coreGoldL = coreGoldR = `rgba(255, 215, 140, ${0.70 * fade})`;
-      shadowGoldL = shadowGoldR = 'rgba(255, 149, 0, 0.65)';
+      strokeGoldL = strokeGoldR = `rgba(255, 159, 10, ${0.88 * fade})`;
+      coreGoldL = coreGoldR = `rgba(255, 215, 140, ${0.65 * fade})`;
+      shadowGoldL = shadowGoldR = 'rgba(255, 159, 10, 0.25)';
     } else {
       if (isLdwLeft) {
-        strokeGoldL = `rgba(255, 149, 0, ${0.98 * fade})`;
-        coreGoldL = `rgba(255, 220, 140, ${0.85 * fade})`;
-        shadowGoldL = 'rgba(255, 149, 0, 0.85)';
+        strokeGoldL = `rgba(255, 159, 10, ${0.92 * fade})`;
+        coreGoldL = `rgba(255, 220, 140, ${0.75 * fade})`;
+        shadowGoldL = 'rgba(255, 159, 10, 0.40)';
       }
       if (isLdwRight) {
-        strokeGoldR = `rgba(255, 149, 0, ${0.98 * fade})`;
-        coreGoldR = `rgba(255, 220, 140, ${0.85 * fade})`;
-        shadowGoldR = 'rgba(255, 149, 0, 0.85)';
+        strokeGoldR = `rgba(255, 159, 10, ${0.92 * fade})`;
+        coreGoldR = `rgba(255, 220, 140, ${0.75 * fade})`;
+        shadowGoldR = 'rgba(255, 159, 10, 0.40)';
       }
     }
 
@@ -1004,7 +1130,7 @@ function renderRoadOptics() {
     // Left Lane Dash Trapezoid
     arCtx.save();
     arCtx.shadowColor = shadowGoldL;
-    arCtx.shadowBlur = (isDanger || isLdwLeft) ? 12 : (isCaution ? 8 : 5);
+    arCtx.shadowBlur = (isDanger || isLdwLeft) ? 5 : (isCaution ? 3 : 1);
     arCtx.fillStyle = strokeGoldL;
     arCtx.beginPath();
     arCtx.moveTo(xL1 - wStripe1 / 2, y1);
@@ -1028,7 +1154,7 @@ function renderRoadOptics() {
     // Right Lane Dash Trapezoid
     arCtx.save();
     arCtx.shadowColor = shadowGoldR;
-    arCtx.shadowBlur = (isDanger || isLdwRight) ? 12 : (isCaution ? 8 : 5);
+    arCtx.shadowBlur = (isDanger || isLdwRight) ? 5 : (isCaution ? 3 : 1);
     arCtx.fillStyle = strokeGoldR;
     arCtx.beginPath();
     arCtx.moveTo(xR1 - wStripe1 / 2, y1);
@@ -1146,7 +1272,7 @@ function renderRoadOptics() {
   arCtx.restore(); // End of unified roll/horizon coordinate space
 
   // -------------------------------------------------------------
-  // 4. Lead Target Tracking Reticle with Uncertainty Bounds
+  // 4. Lead Target Tracking Reticle with Laser-Lock Smoothing
   // -------------------------------------------------------------
   let bbox = telemetryState.obstacleBbox;
 
@@ -1164,30 +1290,66 @@ function renderRoadOptics() {
     };
   }
 
-  if (bbox && telemetryState.targetDistanceM < 110) {
-    const bx = offsetX + (bbox.x * scale);
-    const by = offsetY + (bbox.y * scale);
-    const bw = bbox.width * scale;
-    const bh = bbox.height * scale;
+  const rawBx = bbox ? offsetX + (bbox.x * scale) : 0;
+  const rawBy = bbox ? offsetY + (bbox.y * scale) : 0;
+  const rawBw = bbox ? bbox.width * scale : 0;
+  const rawBh = bbox ? bbox.height * scale : 0;
 
-    // Hard reject detections on the car hood/wipers or floating high in the sky
-    if (by + bh > hoodPx + 4 || by < horizonPx - 25) {
-      arCtx.restore();
-      return;
+  const isValidDetection = Boolean(
+    bbox &&
+    telemetryState.targetDistanceM < 110 &&
+    (rawBy + rawBh <= hoodPx + 4) &&
+    (rawBy >= horizonPx - 25)
+  );
+
+  if (isValidDetection) {
+    if (smoothTarget.alpha < 0.05) {
+      smoothTarget.x = rawBx;
+      smoothTarget.y = rawBy;
+      smoothTarget.w = Math.max(16, rawBw);
+      smoothTarget.h = Math.max(12, rawBh);
+      smoothTarget.distM = telemetryState.targetDistanceM;
+    } else {
+      const alphaLerp = 0.24;
+      smoothTarget.x += (rawBx - smoothTarget.x) * alphaLerp;
+      smoothTarget.y += (rawBy - smoothTarget.y) * alphaLerp;
+      smoothTarget.w += (Math.max(16, rawBw) - smoothTarget.w) * alphaLerp;
+      smoothTarget.h += (Math.max(12, rawBh) - smoothTarget.h) * alphaLerp;
+      smoothTarget.distM += (telemetryState.targetDistanceM - smoothTarget.distM) * 0.20;
     }
+    smoothTarget.alpha = Math.min(1.0, smoothTarget.alpha + 0.16);
+    smoothTarget.active = true;
+  } else {
+    smoothTarget.alpha = Math.max(0, smoothTarget.alpha - 0.12);
+    if (smoothTarget.alpha <= 0) {
+      smoothTarget.active = false;
+    }
+  }
 
-    let strokeColor = 'rgba(255, 209, 89, 0.75)';
+  if (smoothTarget.active && smoothTarget.alpha > 0.02) {
+    const bx = smoothTarget.x;
+    const by = smoothTarget.y;
+    const bw = smoothTarget.w;
+    const bh = smoothTarget.h;
+    const alpha = smoothTarget.alpha;
+
+    let strokeColor = `rgba(245, 215, 130, ${0.75 * alpha})`;
+    let glowColor = 'rgba(245, 200, 80, 0.25)';
     if (telemetryState.alertLevel === 'DANGER_COLLISION') {
-      strokeColor = '#ff3b30';
+      strokeColor = `rgba(255, 69, 58, ${0.95 * alpha})`;
+      glowColor = 'rgba(255, 69, 58, 0.40)';
     } else if (telemetryState.alertLevel === 'CAUTION') {
-      strokeColor = '#ff9500';
+      strokeColor = `rgba(255, 159, 10, ${0.85 * alpha})`;
+      glowColor = 'rgba(255, 159, 10, 0.30)';
     }
 
     const corner = Math.min(10, Math.floor(bw * 0.25));
 
     arCtx.save();
     arCtx.strokeStyle = strokeColor;
-    arCtx.lineWidth = 1.5;
+    arCtx.lineWidth = 1.4;
+    arCtx.shadowColor = glowColor;
+    arCtx.shadowBlur = 4;
 
     // Minimalist Corner Brackets
     arCtx.beginPath();
@@ -1198,7 +1360,7 @@ function renderRoadOptics() {
     arCtx.stroke();
 
     // Apple Spatial Floating Glass Target Pill
-    const badgeText = `${telemetryState.targetDistanceM}m`;
+    const badgeText = `${Math.round(smoothTarget.distM)}m`;
     arCtx.font = '600 11px -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
     const textW = arCtx.measureText(badgeText).width;
     const badgeW = textW + 14;
@@ -1207,9 +1369,9 @@ function renderRoadOptics() {
     const badgeY = Math.max(12, by - badgeH - 6);
 
     arCtx.save();
-    arCtx.fillStyle = 'rgba(16, 18, 26, 0.85)';
+    arCtx.fillStyle = `rgba(16, 18, 24, ${0.85 * alpha})`;
     arCtx.strokeStyle = strokeColor;
-    arCtx.lineWidth = 0.5;
+    arCtx.lineWidth = 0.6;
     arCtx.beginPath();
     if (arCtx.roundRect) {
       arCtx.roundRect(badgeX, badgeY, badgeW, badgeH, 9);
