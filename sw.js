@@ -3,7 +3,7 @@
  * Cache-First Strategy: Guarantees 100% offline functionality in cellular dead zones.
  */
 
-const CACHE_NAME = 'datum-adas-offline-v17';
+const CACHE_NAME = 'datum-adas-offline-v18';
 
 const STATIC_ASSETS = [
   './',
@@ -13,6 +13,7 @@ const STATIC_ASSETS = [
   './src/state.js',
   './src/engines/visionEngine.js',
   './src/engines/laneEngine.js',
+  './src/engines/roadCalibrationEngine.js',
   './src/engines/safetyBrain.js',
   './src/engines/lvdaEngine.js',
   './src/engines/ecoEngine.js',

@@ -2255,6 +2255,15 @@
 
         <div class="select-item" style="grid-column: 1 / -1; margin-top: 6px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <label class="select-label" for="slider-vanishing-x" style="margin-bottom: 0;">Road Center / Mount Position (x_vanishing)</label>
+            <span id="val-vanishing-x" style="font-family: monospace; font-size: 0.76rem; color: #30d158; font-weight: 600;">80 px (Center)</span>
+          </div>
+          <input type="range" id="slider-vanishing-x" min="20" max="140" value="80" style="width: 100%; accent-color: #30d158;">
+          <div style="font-size: 0.65rem; color: rgba(255,255,255,0.45); margin-top: 2px;">Slide left or right to realign corridor when phone is mounted on bottom right or left of windshield.</div>
+        </div>
+
+        <div class="select-item" style="grid-column: 1 / -1; margin-top: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
             <label class="select-label" for="slider-horizon-height" style="margin-bottom: 0;">Vanishing Horizon Row (y_horizon)</label>
             <span id="val-horizon-height" style="font-family: monospace; font-size: 0.76rem; color: #30d158; font-weight: 600;">54 px</span>
           </div>
@@ -2269,6 +2278,15 @@
           </div>
           <input type="range" id="slider-hood-cutoff" min="60" max="118" value="98" style="width: 100%; accent-color: #ffd159;">
           <div style="font-size: 0.65rem; color: rgba(255,255,255,0.45); margin-top: 2px;">Aligns dashed gold line to windshield wiper/hood edge. Eliminates false wiper self-detection.</div>
+        </div>
+
+        <div class="select-item" style="grid-column: 1 / -1; margin-top: 6px; display: flex; gap: 8px;">
+          <button id="btn-auto-realign-road" class="pill-btn" style="flex: 1; padding: 10px; font-weight: 600; background: rgba(0, 122, 255, 0.18); border-color: rgba(0, 122, 255, 0.5); color: #0a84ff; text-align: center;">
+            AUTO-REALIGN ROAD (AI VISION)
+          </button>
+          <button id="btn-reset-mount-center" class="pill-btn" style="padding: 10px 14px; font-weight: 600; background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.2); color: rgba(255, 255, 255, 0.75);">
+            RESET CENTER
+          </button>
         </div>
 
         <div class="select-item" style="grid-column: 1 / -1; margin-top: 4px;">

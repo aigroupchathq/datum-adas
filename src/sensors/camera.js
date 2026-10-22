@@ -7,6 +7,7 @@
 import { telemetryState } from '../state.js';
 import { analyzeFrame, resetVisionState } from '../engines/visionEngine.js';
 import { analyzeLaneFrame, resetLaneEngine } from '../engines/laneEngine.js';
+import { detectRoadGeometry } from '../engines/roadCalibrationEngine.js';
 import { evaluateSafety } from '../engines/safetyBrain.js';
 import { evaluateLvda, resetLvdaEngine } from '../engines/lvdaEngine.js';
 import { evaluateEcoKinematics, resetEcoEngine } from '../engines/ecoEngine.js';
@@ -32,6 +33,7 @@ function initVisionWorker() {
         isWorkerBusy = false;
         const msg = e.data;
         if (msg && msg.type === 'FRAME_RESULTS') {
+          if (msg.roadCalibrationOutputs) Object.assign(telemetryState, msg.roadCalibrationOutputs);
           if (msg.visionOutputs) Object.assign(telemetryState, msg.visionOutputs);
           if (msg.laneOutputs) Object.assign(telemetryState, msg.laneOutputs);
           if (msg.safetyOutputs) Object.assign(telemetryState, msg.safetyOutputs);
@@ -287,6 +289,7 @@ function sampleAndAnalyze() {
         height: FRAME_HEIGHT,
         options: {
           cameraHeightM: telemetryState.cameraHeightM,
+          vanishingX: telemetryState.vanishingX,
           horizonY: telemetryState.horizonY,
           hoodCutoffY: telemetryState.hoodCutoffY,
           yawRateDps: 0,
@@ -306,20 +309,26 @@ function sampleAndAnalyze() {
       }, [bufferCopy]);
     } else if (!visionWorker) {
       // In-thread synchronous fallback
+      const roadCalibrationOutputs = detectRoadGeometry(imageData.data, FRAME_WIDTH, FRAME_HEIGHT, {
+        vanishingX: telemetryState.vanishingX,
+        horizonY: telemetryState.horizonY,
+        hoodCutoffY: telemetryState.hoodCutoffY,
+        autoRealign: telemetryState.autoAlignmentActive !== false
+      });
       const visionOutputs = analyzeFrame(imageData.data, FRAME_WIDTH, FRAME_HEIGHT, {
         cameraHeightM: telemetryState.cameraHeightM,
-        horizonY: telemetryState.horizonY,
-        hoodCutoffY: telemetryState.hoodCutoffY
+        horizonY: roadCalibrationOutputs.horizonY || telemetryState.horizonY,
+        hoodCutoffY: roadCalibrationOutputs.hoodCutoffY || telemetryState.hoodCutoffY
       });
       const laneOutputs = analyzeLaneFrame(imageData.data, FRAME_WIDTH, FRAME_HEIGHT, {
         speedMph: telemetryState.speedMph,
         yawRateDps: 0,
-        horizonY: telemetryState.horizonY
+        horizonY: roadCalibrationOutputs.horizonY || telemetryState.horizonY
       });
       const lvdaOutputs = evaluateLvda(telemetryState);
       const ecoOutputs = evaluateEcoKinematics(telemetryState);
 
-      Object.assign(telemetryState, visionOutputs, laneOutputs, lvdaOutputs, ecoOutputs);
+      Object.assign(telemetryState, roadCalibrationOutputs, visionOutputs, laneOutputs, lvdaOutputs, ecoOutputs);
       if (visionOutputs && visionOutputs.cipvStateVector) {
         telemetryState.cipvStateVector = visionOutputs.cipvStateVector;
       }

@@ -20,7 +20,27 @@ let speedValEl = null;
 let speedUnitLabelEl = null;
 let speedStatusEl = null;
 let targetDistValEl = null;
-let activeDragTarget = null; // 'HORIZON' | 'HOOD' | null
+let activeDragTarget = null; // 'VP' | 'HOOD' | null
+
+export function setVanishingX(x) {
+  const val = Math.max(20, Math.min(140, parseInt(x, 10)));
+  telemetryState.vanishingX = val;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('datum_vanishing_x', val.toString());
+    }
+  } catch (e) {}
+}
+
+export function setCameraMountOffsetM(m) {
+  const val = Math.max(-1.0, Math.min(1.0, parseFloat(m)));
+  telemetryState.cameraMountOffsetM = val;
+  try {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('datum_mount_offset_m', val.toString());
+    }
+  } catch (e) {}
+}
 
 export function setHorizonY(y) {
   const val = Math.max(20, Math.min(90, parseInt(y, 10)));
@@ -250,18 +270,24 @@ export function initHud() {
         return;
       }
       const rect = hudContainerEl.getBoundingClientRect();
+      const pointerX = e.clientX - rect.left;
       const pointerY = e.clientY - rect.top;
+      const w = rect.width;
       const h = rect.height;
-      if (h <= 0) return;
+      if (h <= 0 || w <= 0) return;
 
       const normHorizonY = (typeof telemetryState.horizonY === 'number') ? telemetryState.horizonY : 54;
       const normHoodY = (typeof telemetryState.hoodCutoffY === 'number') ? telemetryState.hoodCutoffY : 98;
+      const normVpX = (typeof telemetryState.vanishingX === 'number') ? telemetryState.vanishingX : 80;
       const pitchOffsetPx = (telemetryState.pitchDeg || 0) * 4.5;
       const horizonPx = (h * (normHorizonY / 120.0)) + pitchOffsetPx;
       const hoodPx = h * (normHoodY / 120.0);
+      const vpX = w * (normVpX / 160.0);
 
-      if (Math.abs(pointerY - horizonPx) < 35) {
-        activeDragTarget = 'HORIZON';
+      // Hit test Vanishing Point Reticle (within 48px radius or near horizon line)
+      const distToVp = Math.hypot(pointerX - vpX, pointerY - horizonPx);
+      if (distToVp < 48 || Math.abs(pointerY - horizonPx) < 28) {
+        activeDragTarget = 'VP';
         try { hudContainerEl.setPointerCapture(e.pointerId); } catch (err) {}
       } else if (Math.abs(pointerY - hoodPx) < 35) {
         activeDragTarget = 'HOOD';
@@ -272,28 +298,43 @@ export function initHud() {
     hudContainerEl.addEventListener('pointermove', (e) => {
       if (!activeDragTarget) return;
       const rect = hudContainerEl.getBoundingClientRect();
+      const pointerX = e.clientX - rect.left;
       const pointerY = e.clientY - rect.top;
+      const w = rect.width;
       const h = rect.height;
-      if (h <= 0) return;
+      if (h <= 0 || w <= 0) return;
 
-      const normRow = Math.round((pointerY / h) * 120);
-
-      if (activeDragTarget === 'HORIZON') {
+      if (activeDragTarget === 'VP') {
+        const normCol = Math.round((pointerX / w) * 160);
+        const normRow = Math.round((pointerY / h) * 120);
+        const clampedVpX = Math.max(20, Math.min(140, normCol));
         const clampedHorizon = Math.max(25, Math.min(80, normRow));
+
+        telemetryState.vanishingX = clampedVpX;
         telemetryState.horizonY = clampedHorizon;
-        try { localStorage.setItem('datum_horizon_y', clampedHorizon.toString()); } catch (err) {}
+        try {
+          localStorage.setItem('datum_vanishing_x', clampedVpX.toString());
+          localStorage.setItem('datum_horizon_y', clampedHorizon.toString());
+        } catch (err) {}
+
+        const sliderX = document.getElementById('slider-vanishing-x');
+        const labelX = document.getElementById('val-vanishing-x');
+        if (sliderX) sliderX.value = clampedVpX;
+        if (labelX) labelX.textContent = `${clampedVpX} px`;
+
         const sliderH = document.getElementById('slider-horizon-height');
         const labelH = document.getElementById('val-horizon-height');
         if (sliderH) sliderH.value = clampedHorizon;
-        if (labelH) labelH.textContent = `${clampedHorizon}px`;
+        if (labelH) labelH.textContent = `${clampedHorizon} px`;
       } else if (activeDragTarget === 'HOOD') {
+        const normRow = Math.round((pointerY / h) * 120);
         const clampedHood = Math.max(65, Math.min(115, normRow));
         telemetryState.hoodCutoffY = clampedHood;
         try { localStorage.setItem('datum_hood_cutoff', clampedHood.toString()); } catch (err) {}
         const sliderCut = document.getElementById('slider-hood-cutoff');
         const labelCut = document.getElementById('val-hood-cutoff');
         if (sliderCut) sliderCut.value = clampedHood;
-        if (labelCut) labelCut.textContent = `${clampedHood}px`;
+        if (labelCut) labelCut.textContent = `${clampedHood} px`;
       }
     });
 
@@ -742,17 +783,21 @@ function renderRoadOptics() {
   const offsetX = (w - vidW) / 2;
   const offsetY = (h - vidH) / 2;
 
-  // Ground-anchored horizon and vehicle hood cutoff mapping
+  // Ground-anchored horizon, vanishing point, and vehicle hood cutoff mapping
   const normHorizonY = (typeof telemetryState.horizonY === 'number') ? telemetryState.horizonY : 54;
   const normHoodY = (typeof telemetryState.hoodCutoffY === 'number') ? telemetryState.hoodCutoffY : 98;
+  const normVpX = (typeof telemetryState.vanishingX === 'number') ? telemetryState.vanishingX : 80;
+  const camOffsetM = (typeof telemetryState.cameraMountOffsetM === 'number') ? telemetryState.cameraMountOffsetM : 0.0;
 
-  // Map 0-120 perception row space to screen pixel coordinates
+  // Map 0-120 row and 0-160 column perception space to screen pixel coordinates
   const horizonFraction = normHorizonY / 120.0;
   const hoodFraction = normHoodY / 120.0;
+  const vpXFraction = normVpX / 160.0;
   const pitchOffsetPx = (telemetryState.pitchDeg || 0) * 4.5;
 
   const horizonPx = Math.max(h * 0.20, Math.min(h * 0.70, (h * horizonFraction) + pitchOffsetPx));
   const hoodPx = Math.max(horizonPx + 40, Math.min(h, h * hoodFraction));
+  const vpX = Math.max(w * 0.15, Math.min(w * 0.85, w * vpXFraction));
   const H_CAM = Math.max(0.8, telemetryState.cameraHeightM || 1.25);
 
   let isDanger = telemetryState.alertLevel === 'DANGER_COLLISION';
@@ -765,19 +810,19 @@ function renderRoadOptics() {
   arCtx.save();
   const safeRollDeg = Math.max(-4.0, Math.min(4.0, telemetryState.rollDeg || 0));
   if (Math.abs(safeRollDeg) > 0.2) {
-    arCtx.translate(w / 2, horizonPx);
+    arCtx.translate(vpX, horizonPx);
     arCtx.rotate((safeRollDeg * Math.PI) / 180);
-    arCtx.translate(-w / 2, -horizonPx);
+    arCtx.translate(-vpX, -horizonPx);
   }
 
   // 1. Serene Horizon Reference Line (Gyroscope Stabilized)
   arCtx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
   arCtx.lineWidth = 1;
   arCtx.beginPath();
-  arCtx.moveTo(w * 0.20, horizonPx);
-  arCtx.lineTo(w * 0.44, horizonPx);
-  arCtx.moveTo(w * 0.56, horizonPx);
-  arCtx.lineTo(w * 0.80, horizonPx);
+  arCtx.moveTo(w * 0.10, horizonPx);
+  arCtx.lineTo(Math.max(w * 0.12, vpX - 30), horizonPx);
+  arCtx.moveTo(Math.min(w * 0.88, vpX + 30), horizonPx);
+  arCtx.lineTo(w * 0.90, horizonPx);
   arCtx.stroke();
 
   // Visual Calibration Guides (Active during calibration, drag alignment, or drawer inspection)
@@ -792,13 +837,28 @@ function renderRoadOptics() {
     arCtx.moveTo(8, horizonPx);
     arCtx.lineTo(w - 8, horizonPx);
     arCtx.stroke();
+
+    // Vertical Vanishing Line Axis
+    arCtx.beginPath();
+    arCtx.moveTo(vpX, horizonPx - 24);
+    arCtx.lineTo(vpX, horizonPx + 24);
+    arCtx.stroke();
+
+    // 2D Vanishing Point Reticle Circle
+    arCtx.setLineDash([]);
+    arCtx.beginPath();
+    arCtx.arc(vpX, horizonPx, 11, 0, Math.PI * 2);
+    arCtx.stroke();
+
     arCtx.fillStyle = '#30d158';
     arCtx.font = '600 10px monospace';
-    arCtx.textAlign = 'left';
-    arCtx.fillText(`VANISHING HORIZON: ${normHorizonY}px (${Math.round(horizonPx)}px)`, 12, horizonPx - 5);
+    arCtx.textAlign = (vpX > w * 0.6) ? 'right' : 'left';
+    const textX = (vpX > w * 0.6) ? vpX - 16 : vpX + 16;
+    arCtx.fillText(`ROAD VP: [${normVpX}, ${normHorizonY}] • OFFSET: ${camOffsetM >= 0 ? '+' : ''}${camOffsetM}m`, textX, horizonPx - 4);
 
     // Amber Hood Cutoff Guide
     arCtx.strokeStyle = 'rgba(255, 209, 89, 0.75)';
+    arCtx.setLineDash([6, 4]);
     arCtx.beginPath();
     arCtx.moveTo(8, hoodPx);
     arCtx.lineTo(w - 8, hoodPx);
@@ -815,6 +875,13 @@ function renderRoadOptics() {
   const carRightM = +0.925;
   const stripeWidthM = 0.15; // 15cm highway stripe width
 
+  // Lateral coordinates relative to camera optical mounting position
+  const relCarLeftM = carLeftM - camOffsetM;
+  const relCarRightM = carRightM - camOffsetM;
+  const relLaneLeftM = laneLeftM - camOffsetM;
+  const relLaneRightM = laneRightM - camOffsetM;
+  const relCenterM = 0.0 - camOffsetM;
+
   // Navigation curvature: lateral offset at far-point = ½·κ·z²
   // Clamped to ±3.0m max lateral bend for visual sanity
   const rawKappa = telemetryState.routeCurvatureKappa || 0;
@@ -829,17 +896,17 @@ function renderRoadOptics() {
   const trackFarZ = 55.0; // 55m ahead
   const trackFarY = horizonPx + (H_CAM * F_OPT_Y) / trackFarZ;
 
-  const xNearL = (w / 2) + ((carLeftM  + curveNearOffsetM) * F_OPT_X) / trackNearZ;
-  const xFarL  = (w / 2) + ((carLeftM  + curveFarOffsetM)  * F_OPT_X) / trackFarZ;
-  const xNearR = (w / 2) + ((carRightM + curveNearOffsetM) * F_OPT_X) / trackNearZ;
-  const xFarR  = (w / 2) + ((carRightM + curveFarOffsetM)  * F_OPT_X) / trackFarZ;
+  const xNearL = vpX + ((relCarLeftM  + curveNearOffsetM) * F_OPT_X) / trackNearZ;
+  const xFarL  = vpX + ((relCarLeftM  + curveFarOffsetM)  * F_OPT_X) / trackFarZ;
+  const xNearR = vpX + ((relCarRightM + curveNearOffsetM) * F_OPT_X) / trackNearZ;
+  const xFarR  = vpX + ((relCarRightM + curveFarOffsetM)  * F_OPT_X) / trackFarZ;
 
   // Quadratic control point for smooth curvature (mid-depth lateral shift)
   const trackMidZ = 18.0;
   const curveMidOffsetM = 0.5 * kappa * (trackMidZ * trackMidZ);
   const trackMidY = horizonPx + (H_CAM * F_OPT_Y) / trackMidZ;
-  const xMidL = (w / 2) + ((carLeftM  + curveMidOffsetM) * F_OPT_X) / trackMidZ;
-  const xMidR = (w / 2) + ((carRightM + curveMidOffsetM) * F_OPT_X) / trackMidZ;
+  const xMidL = vpX + ((relCarLeftM  + curveMidOffsetM) * F_OPT_X) / trackMidZ;
+  const xMidR = vpX + ((relCarRightM + curveMidOffsetM) * F_OPT_X) / trackMidZ;
 
   arCtx.strokeStyle = isDanger ? 'rgba(255, 59, 48, 0.40)' : (isCaution ? 'rgba(255, 149, 0, 0.30)' : 'rgba(255, 209, 89, 0.18)');
   arCtx.lineWidth = 1.0;
@@ -890,12 +957,12 @@ function renderRoadOptics() {
     // Left Lane Dash (X = laneLeftM + curvature lateral shift per depth)
     const curveOffL1 = 0.5 * kappa * (clampedZ1 * clampedZ1);
     const curveOffL2 = 0.5 * kappa * (clampedZ2 * clampedZ2);
-    const xL1 = (w / 2) + ((laneLeftM  + curveOffL1) * F_OPT_X) / clampedZ1;
-    const xL2 = (w / 2) + ((laneLeftM  + curveOffL2) * F_OPT_X) / clampedZ2;
+    const xL1 = vpX + ((relLaneLeftM  + curveOffL1) * F_OPT_X) / clampedZ1;
+    const xL2 = vpX + ((relLaneLeftM  + curveOffL2) * F_OPT_X) / clampedZ2;
 
     // Right Lane Dash (X = laneRightM + curvature)
-    const xR1 = (w / 2) + ((laneRightM + curveOffL1) * F_OPT_X) / clampedZ1;
-    const xR2 = (w / 2) + ((laneRightM + curveOffL2) * F_OPT_X) / clampedZ2;
+    const xR1 = vpX + ((relLaneRightM + curveOffL1) * F_OPT_X) / clampedZ1;
+    const xR2 = vpX + ((relLaneRightM + curveOffL2) * F_OPT_X) / clampedZ2;
 
 
     // Golden / Yellow luxury palette with active hazard escalation
@@ -992,8 +1059,8 @@ function renderRoadOptics() {
   staticGates.forEach(distM => {
     const yPx = horizonPx + (H_CAM * F_OPT_Y) / distM;
     if (yPx > horizonPx + 6 && yPx <= hoodPx - 2) {
-      const xLeft = (w / 2) + (laneLeftM * F_OPT_X) / distM;
-      const xRight = (w / 2) + (laneRightM * F_OPT_X) / distM;
+      const xLeft = vpX + (relLaneLeftM * F_OPT_X) / distM;
+      const xRight = vpX + (relLaneRightM * F_OPT_X) / distM;
 
       const isTargetBreached = telemetryState.targetDistanceM <= distM;
       let gateColor = isTargetBreached && isDanger
@@ -1053,8 +1120,9 @@ function renderRoadOptics() {
     if (stopY > horizonPx + 6 && stopY <= hoodPx - 2) {
       const isBreached = telemetryState.targetDistanceM <= stoppingDistM;
       const arcWidth = Math.min(w * 0.70, (3.6 * F_OPT_X) / stoppingDistM);
-      const arcLeft = (w - arcWidth) / 2;
-      const arcRight = (w + arcWidth) / 2;
+      const arcCenter = vpX + (relCenterM * F_OPT_X) / stoppingDistM;
+      const arcLeft = arcCenter - (arcWidth / 2);
+      const arcRight = arcCenter + (arcWidth / 2);
 
       arCtx.save();
       if (isBreached) {
@@ -1069,7 +1137,7 @@ function renderRoadOptics() {
 
       arCtx.beginPath();
       arCtx.moveTo(arcLeft, stopY);
-      arCtx.quadraticCurveTo(w / 2, stopY + Math.max(3, 30 / stoppingDistM), arcRight, stopY);
+      arCtx.quadraticCurveTo(arcCenter, stopY + Math.max(3, 30 / stoppingDistM), arcRight, stopY);
       arCtx.stroke();
       arCtx.restore();
     }
@@ -1087,8 +1155,9 @@ function renderRoadOptics() {
     const boxW = 20 + (simNorm * 40);
     const boxH = boxW * 0.65;
     const boxY = (telemetryState.horizonY + 6) + (simNorm * (108 - telemetryState.horizonY - 6));
+    const simVpX = telemetryState.vanishingX || 80;
     bbox = {
-      x: 80 - Math.floor(boxW / 2),
+      x: simVpX - Math.floor(boxW / 2),
       y: boxY - boxH,
       width: boxW,
       height: boxH

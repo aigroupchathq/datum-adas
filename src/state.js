@@ -29,6 +29,32 @@ function getInitialHoodCutoff() {
   return 98; // Default row in 160x120 space (~82% height, above vehicle hood)
 }
 
+function getInitialVanishingX() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('datum_vanishing_x');
+      if (saved) {
+        const val = parseInt(saved, 10);
+        if (Number.isFinite(val) && val >= 20 && val <= 140) return val;
+      }
+    }
+  } catch (e) {}
+  return 80; // Default center column in 160x120 space (50%)
+}
+
+function getInitialMountOffset() {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem('datum_mount_offset_m');
+      if (saved) {
+        const val = parseFloat(saved);
+        if (Number.isFinite(val) && val >= -1.0 && val <= 1.0) return val;
+      }
+    }
+  } catch (e) {}
+  return 0.0; // Centered
+}
+
 function getInitialSpeedUnit() {
   try {
     if (typeof localStorage !== 'undefined') {
@@ -45,6 +71,8 @@ function getInitialSpeedUnit() {
 const initialSpeedUnit = getInitialSpeedUnit();
 const initialHorizonY = getInitialHorizonY();
 const initialHoodCutoff = getInitialHoodCutoff();
+const initialVanishingX = getInitialVanishingX();
+const initialMountOffset = getInitialMountOffset();
 
 export const telemetryState = {
   isRunning: false,
@@ -62,7 +90,13 @@ export const telemetryState = {
   vehicleClass: 'SEDAN',       // 'SEDAN' (1.25m) | 'SUV' (1.55m) | 'TRUCK' (1.90m)
   cameraHeightM: 1.25,         // Camera optical elevation above ground plane
   horizonY: initialHorizonY,   // Dynamic vanishing point row (0-120)
+  vanishingX: initialVanishingX, // Dynamic vanishing point column (0-160), auto-realigns if mounted on right/left
+  vanishingY: initialHorizonY, // Dynamic vanishing point row (0-120)
   hoodCutoffY: initialHoodCutoff, // Vehicle hood/wiper cutoff row (0-120), rejects self-reflections
+  cameraMountOffsetM: initialMountOffset, // Lateral camera mounting offset (+0.45m for right windshield mount)
+  autoAlignmentActive: true,   // Automatic road and vanishing point realignment engine
+  roadCenterBottomX: initialVanishingX, // Detected road center at vehicle bumper (0-160)
+  roadWidthBottomPx: 96,       // Detected road width at vehicle bumper (0-160)
   pitchDeg: 0,                 // Inertial pitch angle (degrees) from device gyro
   rollDeg: 0,                  // Lateral tilt/roll angle (degrees)
   imuCalibrated: false,        // True once ground plane baseline is established

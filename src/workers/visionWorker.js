@@ -6,6 +6,7 @@
 
 import { analyzeFrame, resetVisionState } from '../engines/visionEngine.js';
 import { analyzeLaneFrame, resetLaneEngine } from '../engines/laneEngine.js';
+import { detectRoadGeometry, resetRoadCalibrationEngine } from '../engines/roadCalibrationEngine.js';
 import { evaluateSafety } from '../engines/safetyBrain.js';
 import { evaluateLvda, resetLvdaEngine } from '../engines/lvdaEngine.js';
 import { evaluateEcoKinematics, resetEcoEngine } from '../engines/ecoEngine.js';
@@ -18,11 +19,19 @@ self.onmessage = function(event) {
     const { buffer, width, height, options, telemetry } = data;
     const pixels = new Uint8ClampedArray(buffer);
 
+    // 0. Auto-Realignment: detect road vanishing point and camera mounting offset
+    const roadCalibrationOutputs = detectRoadGeometry(pixels, width, height, {
+      vanishingX: options.vanishingX,
+      horizonY: options.horizonY,
+      hoodCutoffY: options.hoodCutoffY,
+      autoRealign: telemetry.autoAlignmentActive !== false
+    });
+
     // 1. Longitudinal forward perception
     const visionOutputs = analyzeFrame(pixels, width, height, {
       cameraHeightM: options.cameraHeightM,
-      horizonY: options.horizonY,
-      hoodCutoffY: options.hoodCutoffY,
+      horizonY: roadCalibrationOutputs.horizonY || options.horizonY,
+      hoodCutoffY: roadCalibrationOutputs.hoodCutoffY || options.hoodCutoffY,
       timestamp: options.timestamp
     });
 
@@ -30,12 +39,12 @@ self.onmessage = function(event) {
     const laneOutputs = analyzeLaneFrame(pixels, width, height, {
       speedMph: telemetry.speedMph || 0,
       yawRateDps: options.yawRateDps || 0,
-      horizonY: options.horizonY,
+      horizonY: roadCalibrationOutputs.horizonY || options.horizonY,
       timestamp: options.timestamp
     });
 
     // Combine state for safety and value-for-money brain evaluation
-    const mergedState = Object.assign({}, telemetry, visionOutputs, laneOutputs);
+    const mergedState = Object.assign({}, telemetry, roadCalibrationOutputs, visionOutputs, laneOutputs);
 
     // 3. Forward collision and sightline safety kinematics
     const safetyOutputs = evaluateSafety(mergedState);
@@ -53,6 +62,7 @@ self.onmessage = function(event) {
 
     self.postMessage({
       type: 'FRAME_RESULTS',
+      roadCalibrationOutputs,
       visionOutputs,
       laneOutputs,
       safetyOutputs,
@@ -63,6 +73,7 @@ self.onmessage = function(event) {
   } else if (data.type === 'RESET') {
     resetVisionState();
     resetLaneEngine();
+    resetRoadCalibrationEngine();
     resetLvdaEngine();
     resetEcoEngine();
   }

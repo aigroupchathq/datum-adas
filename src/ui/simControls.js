@@ -6,7 +6,7 @@
 import { telemetryState } from '../state.js';
 import { toggleAudioMute } from './audioAlerts.js';
 import { generateTripReceipt } from '../engines/ecoEngine.js';
-import { setSpeedUnit, setHorizonY, setHoodCutoffY } from './hud.js';
+import { setSpeedUnit, setHorizonY, setHoodCutoffY, setVanishingX } from './hud.js';
 
 const MPH_TO_MPS = 0.44704;
 
@@ -159,7 +159,23 @@ export function initSimControls() {
     });
   }
 
-  // Optical Geometry & Calibration: Horizon Height & Vehicle Hood Cutoff
+  // Optical Geometry & Calibration: Vanishing Point, Horizon Height & Vehicle Hood Cutoff
+  const vanishingXSlider = document.getElementById('slider-vanishing-x');
+  const vanishingXValText = document.getElementById('val-vanishing-x');
+  if (vanishingXSlider) {
+    vanishingXSlider.value = telemetryState.vanishingX || 80;
+    if (vanishingXValText) {
+      vanishingXValText.textContent = (vanishingXSlider.value == 80) ? '80 px (Center)' : `${vanishingXSlider.value} px`;
+    }
+    vanishingXSlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value, 10);
+      if (vanishingXValText) {
+        vanishingXValText.textContent = (val === 80) ? '80 px (Center)' : `${val} px`;
+      }
+      setVanishingX(val);
+    });
+  }
+
   const horizonSlider = document.getElementById('slider-horizon-height');
   const horizonValText = document.getElementById('val-horizon-height');
   if (horizonSlider) {
@@ -181,6 +197,42 @@ export function initSimControls() {
       const val = parseInt(e.target.value, 10);
       if (hoodValText) hoodValText.textContent = `${val} px`;
       setHoodCutoffY(val);
+    });
+  }
+
+  const btnAutoRealign = document.getElementById('btn-auto-realign-road');
+  if (btnAutoRealign) {
+    btnAutoRealign.addEventListener('click', () => {
+      telemetryState.autoAlignmentActive = true;
+      telemetryState.calibrationState = 'CALIBRATING';
+      btnAutoRealign.textContent = 'REALIGNING ROAD...';
+      btnAutoRealign.style.color = '#30d158';
+      setTimeout(() => {
+        btnAutoRealign.textContent = 'AUTO-REALIGN ROAD (AI VISION)';
+        btnAutoRealign.style.color = '#0a84ff';
+      }, 2000);
+    });
+  }
+
+  const btnResetMount = document.getElementById('btn-reset-mount-center');
+  if (btnResetMount) {
+    btnResetMount.addEventListener('click', () => {
+      telemetryState.vanishingX = 80;
+      telemetryState.horizonY = 54;
+      telemetryState.hoodCutoffY = 98;
+      telemetryState.cameraMountOffsetM = 0.0;
+      try {
+        localStorage.removeItem('datum_vanishing_x');
+        localStorage.removeItem('datum_horizon_y');
+        localStorage.removeItem('datum_hood_cutoff');
+        localStorage.removeItem('datum_mount_offset_m');
+      } catch (err) {}
+      if (vanishingXSlider) vanishingXSlider.value = 80;
+      if (vanishingXValText) vanishingXValText.textContent = '80 px (Center)';
+      if (horizonSlider) horizonSlider.value = 54;
+      if (horizonValText) horizonValText.textContent = '54 px';
+      if (hoodSlider) hoodSlider.value = 98;
+      if (hoodValText) hoodValText.textContent = '98 px';
     });
   }
 
