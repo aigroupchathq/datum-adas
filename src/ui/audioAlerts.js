@@ -93,8 +93,8 @@ export function evaluateAudioAlert(alertLevel, ldwState, rumbleSide, leadVehicle
     return;
   }
 
-  // Priority 5: Tiered Polite Caution Chime (Close Headway / Approaching)
-  if (alertLevel === 'CAUTION') {
+  // Priority 5: Tiered Polite Caution Chime (Close Headway / Approaching / System Degraded)
+  if (alertLevel === 'CAUTION' || alertLevel === 'SYSTEM_DEGRADED') {
     const lastCaution = telemetryState.lastCautionAlertTs || 0;
     if (now - lastCaution >= CAUTION_COOLDOWN_MS && now - lastAlertStartTs >= ALERT_LATCH_MS) {
       lastAlertStartTs = now;

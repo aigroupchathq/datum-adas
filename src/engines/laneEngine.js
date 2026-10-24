@@ -65,12 +65,20 @@ export function analyzeLaneFrame(pixels, width = 160, height = 120, options = {}
   // -------------------------------------------------------------
   const scanStartY = Math.max(horizonY + 10, Math.floor(height * 0.58));
   const scanEndY = height - 4;
-  const midX = Math.floor(width / 2); // 80 in 160px width
+  const roadCenter = (typeof options.roadCenterBottomX === 'number' && Number.isFinite(options.roadCenterBottomX))
+    ? options.roadCenterBottomX
+    : ((typeof options.vanishingX === 'number' && Number.isFinite(options.vanishingX)) ? options.vanishingX : Math.floor(width / 2));
+  const midX = Math.max(30, Math.min(width - 30, Math.round(roadCenter)));
 
   let leftCandidateSumX = 0;
   let leftCandidateCount = 0;
   let rightCandidateSumX = 0;
   let rightCandidateCount = 0;
+
+  const minLeftX = Math.max(4, Math.round(midX - 56));
+  const maxLeftX = midX - 6;
+  const minRightX = midX + 6;
+  const maxRightX = Math.min(width - 4, Math.round(midX + 56));
 
   for (let y = scanEndY; y >= scanStartY; y -= 2) {
     const rowOffset = y * width;
@@ -79,8 +87,8 @@ export function analyzeLaneFrame(pixels, width = 160, height = 120, options = {}
     let maxRightGrad = 0;
     let bestRightX = -1;
 
-    // A. Left Lane Corridor Scan: X in [15% .. 46%] of width (24px to 74px)
-    for (let x = Math.floor(width * 0.15); x < midX - 6; x++) {
+    // A. Left Lane Corridor Scan
+    for (let x = minLeftX; x < maxLeftX; x++) {
       const idxL = (rowOffset + x) * 4;
       // Luminance: ITU-R BT.601
       const lumaCenter = (pixels[idxL] * 299 + pixels[idxL + 1] * 587 + pixels[idxL + 2] * 114) / 1000;
@@ -94,8 +102,8 @@ export function analyzeLaneFrame(pixels, width = 160, height = 120, options = {}
       }
     }
 
-    // B. Right Lane Corridor Scan: X in [54% .. 85%] of width (86px to 136px)
-    for (let x = midX + 6; x < Math.floor(width * 0.85); x++) {
+    // B. Right Lane Corridor Scan
+    for (let x = minRightX; x < maxRightX; x++) {
       const idxR = (rowOffset + x) * 4;
       const lumaCenter = (pixels[idxR] * 299 + pixels[idxR + 1] * 587 + pixels[idxR + 2] * 114) / 1000;
       const idxNext = (rowOffset + (x + 2)) * 4;
@@ -136,12 +144,13 @@ export function analyzeLaneFrame(pixels, width = 160, height = 120, options = {}
   }
 
   const laneCenterX = (avgLeftX + avgRightX) / 2;
-  const vehicleCenterX = midX; // Optical camera centered on car longitudinal axis
+  const vehicleCenterX = midX; // Center of bumper lane search corridor
   const deltaXpx = vehicleCenterX - laneCenterX; // Positive = vehicle drifted right of center
 
   // Metric conversion: 3.6m standard lane corresponds to laneSpanPx
   const pxPerMeter = laneSpanPx / STANDARD_LANE_WIDTH_M;
-  const lateralOffsetM = Math.round((deltaXpx / pxPerMeter) * 100) / 100;
+  const mountOffsetM = (typeof options.cameraMountOffsetM === 'number' && Number.isFinite(options.cameraMountOffsetM)) ? options.cameraMountOffsetM : 0;
+  const lateralOffsetM = Math.round(((deltaXpx / pxPerMeter) - mountOffsetM) * 100) / 100;
 
   // Vehicle half-width: 1.85m car track -> 0.925m from centerline
   const carHalfWidthM = STANDARD_VEHICLE_WIDTH_M / 2; // 0.925m

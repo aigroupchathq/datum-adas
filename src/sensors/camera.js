@@ -323,7 +323,10 @@ function sampleAndAnalyze() {
       const laneOutputs = analyzeLaneFrame(imageData.data, FRAME_WIDTH, FRAME_HEIGHT, {
         speedMph: telemetryState.speedMph,
         yawRateDps: 0,
-        horizonY: roadCalibrationOutputs.horizonY || telemetryState.horizonY
+        horizonY: roadCalibrationOutputs.horizonY || telemetryState.horizonY,
+        roadCenterBottomX: roadCalibrationOutputs.roadCenterBottomX || telemetryState.roadCenterBottomX,
+        vanishingX: roadCalibrationOutputs.vanishingX || telemetryState.vanishingX,
+        cameraMountOffsetM: roadCalibrationOutputs.cameraMountOffsetM ?? telemetryState.cameraMountOffsetM
       });
       const lvdaOutputs = evaluateLvda(telemetryState);
       const ecoOutputs = evaluateEcoKinematics(telemetryState);

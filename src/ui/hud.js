@@ -450,6 +450,9 @@ function getRawTargetAlert() {
     }
     return { level: 'CAUTION', text: msg };
   }
+  if (level === 'SYSTEM_DEGRADED' || ((telemetryState.sensorConfidence === 'DEGRADED' || telemetryState.sensorIncongruence) && (telemetryState.speedMps || 0) > 3.0)) {
+    return { level: 'SYSTEM_DEGRADED', text: 'VISION DEGRADED — EYE SCAN REQUIRED' };
+  }
   if (level === 'CREEPING') {
     return { level: 'CREEPING', text: `CREEPING — ${telemetryState.targetDistanceM}m` };
   }
@@ -474,6 +477,7 @@ function getAlertPriority(lvl) {
     case 'DANGER_OVERDRIVING_VIS':
       return 3;
     case 'CAUTION':
+    case 'SYSTEM_DEGRADED':
       return 2;
     case 'LVDA':
     case 'COASTING':
@@ -558,8 +562,12 @@ function renderState() {
       targetDistValEl.classList.remove('hazard-crimson');
     }
 
+    const isPerceptionDegraded = telemetryState.alertLevel === 'SYSTEM_DEGRADED' ||
+      telemetryState.sensorConfidence === 'DEGRADED' ||
+      Boolean(telemetryState.sensorIncongruence);
+
     if (telemetryState.targetDistanceM >= 115) {
-      targetDistValEl.textContent = 'CLEAR';
+      targetDistValEl.textContent = isPerceptionDegraded ? 'SCAN ROAD' : 'CLEAR';
     } else {
       targetDistValEl.textContent = `${telemetryState.targetDistanceM}m`;
     }
@@ -594,7 +602,14 @@ function renderState() {
 
   if (safetyMarginValEl) {
     const margin = telemetryState.safetyMarginM;
-    if (margin > 20) {
+    const isPerceptionDegraded = telemetryState.alertLevel === 'SYSTEM_DEGRADED' ||
+      telemetryState.sensorConfidence === 'DEGRADED' ||
+      Boolean(telemetryState.sensorIncongruence);
+
+    if (isPerceptionDegraded && (telemetryState.speedMps || 0) > 3.0) {
+      safetyMarginValEl.textContent = 'UNVERIFIED';
+      safetyMarginValEl.className = 'metric-value val-caution';
+    } else if (margin > 20) {
       safetyMarginValEl.textContent = `+${margin}m SAFE`;
       safetyMarginValEl.className = 'metric-value val-safe';
     } else if (margin > 0) {

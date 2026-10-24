@@ -90,6 +90,7 @@ export const telemetryState = {
   vehicleClass: 'SEDAN',       // 'SEDAN' (1.25m) | 'SUV' (1.55m) | 'TRUCK' (1.90m)
   cameraHeightM: 1.25,         // Camera optical elevation above ground plane
   horizonY: initialHorizonY,   // Dynamic vanishing point row (0-120)
+  calibratedHorizonY: initialHorizonY, // Stabilized geometric baseline horizon row
   vanishingX: initialVanishingX, // Dynamic vanishing point column (0-160), auto-realigns if mounted on right/left
   vanishingY: initialHorizonY, // Dynamic vanishing point row (0-120)
   hoodCutoffY: initialHoodCutoff, // Vehicle hood/wiper cutoff row (0-120), rejects self-reflections

@@ -27,9 +27,14 @@ export function evaluateSafety(state = {}) {
   // -------------------------------------------------------------
   // 1. Stopping Distance Kinematics: d_stop = d_reaction + d_braking
   // (Physical distance required to reach full stop relative to stationary point)
+  // Accounts for inclined road grade / pitch slope: a_decel = g * (mu * cos(theta) + sin(theta))
   // -------------------------------------------------------------
+  const pitchDeg = (typeof s.pitchDeg === 'number' && Number.isFinite(s.pitchDeg)) ? Math.max(-25, Math.min(25, s.pitchDeg)) : 0;
+  const pitchRad = (pitchDeg * Math.PI) / 180;
+  const effectiveDecelMps2 = Math.max(0.15 * GRAVITY_MPS2, GRAVITY_MPS2 * (frictionMu * Math.cos(pitchRad) + Math.sin(pitchRad)));
+
   const reactionDistanceM = Math.round(speedMps * HUMAN_REACTION_TIME_SEC);
-  const brakingDistanceM = Math.round((speedMps * speedMps) / (2 * frictionMu * GRAVITY_MPS2));
+  const brakingDistanceM = Math.round((speedMps * speedMps) / (2 * effectiveDecelMps2));
   const stoppingDistanceM = reactionDistanceM + brakingDistanceM;
   const effectiveDistanceM = (typeof s.conservativeDistanceM === 'number' && Number.isFinite(s.conservativeDistanceM) && s.conservativeDistanceM > 0)
     ? s.conservativeDistanceM
@@ -43,7 +48,7 @@ export function evaluateSafety(state = {}) {
   // -------------------------------------------------------------
   const rhoReactionSec = HUMAN_REACTION_TIME_SEC;
   const aMaxAccMps2 = 1.5; // Maximum plausible acceleration during reaction delay
-  const bMinEgoBrakingMps2 = Math.max(1.5, frictionMu * GRAVITY_MPS2 * 0.85); // Dynamic surface friction limited
+  const bMinEgoBrakingMps2 = Math.max(1.5, effectiveDecelMps2 * 0.85); // Dynamic surface friction & road grade limited
   const bMaxLeadBrakingMps2 = GRAVITY_MPS2; // Lead vehicle maximum emergency braking (1.0g)
   const leadSpeedMps = Math.max(0, speedMps - (closingSpeedMph * MPH_TO_MPS));
 
@@ -113,15 +118,17 @@ export function evaluateSafety(state = {}) {
   const isCautionThreat = isHeadwayCompressed || isModerateTtc || isNearSightlineLimit || isBrakeLightCaution;
 
   // -------------------------------------------------------------
-  // 4. Debounce Confirmation Logic (3-Frame Confirmation)
+  // 4. Debounce Confirmation Logic (Leaky-Integrator Filter)
+  // Survives 50% frame drops / vibration while maintaining 3-tick confirmation
   // -------------------------------------------------------------
   if (isStandstill) {
     // Standstill Hold: clamp debounce counter to zero; no false alarms while stopped
     consecutiveHazardFrames = 0;
   } else if (isCollisionThreat || isOverdrivingVisibility) {
-    consecutiveHazardFrames++;
+    consecutiveHazardFrames = Math.min(5, consecutiveHazardFrames + 1);
   } else {
-    consecutiveHazardFrames = Math.max(0, consecutiveHazardFrames - 1);
+    // Leaky integrator: decay by 0.5 per clean frame instead of instant full reset
+    consecutiveHazardFrames = Math.max(0, Math.round((consecutiveHazardFrames - 0.5) * 10) / 10);
   }
 
   let alertLevel = 'SAFE';
@@ -136,6 +143,9 @@ export function evaluateSafety(state = {}) {
     alertLevel = 'CAUTION';
   } else if (isLowSpeedCreep && effectiveDistanceM < 4.0) {
     alertLevel = 'CREEPING';
+  } else if ((s.sensorConfidence === 'DEGRADED' || Boolean(s.sensorIncongruence) || (typeof s.visibilityPct === 'number' && s.visibilityPct < 15)) && speedMps > 3.0) {
+    // Mandate 1: Fail-safe degradation; never claim SAFE when traveling blind
+    alertLevel = 'SYSTEM_DEGRADED';
   }
 
   return {

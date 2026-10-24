@@ -40,6 +40,9 @@ self.onmessage = function(event) {
       speedMph: telemetry.speedMph || 0,
       yawRateDps: options.yawRateDps || 0,
       horizonY: roadCalibrationOutputs.horizonY || options.horizonY,
+      roadCenterBottomX: roadCalibrationOutputs.roadCenterBottomX || telemetry.roadCenterBottomX,
+      vanishingX: roadCalibrationOutputs.vanishingX || options.vanishingX,
+      cameraMountOffsetM: roadCalibrationOutputs.cameraMountOffsetM ?? telemetry.cameraMountOffsetM,
       timestamp: options.timestamp
     });
 

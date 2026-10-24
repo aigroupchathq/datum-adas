@@ -164,7 +164,7 @@ assert(!notFoundHtml.includes('unregister()'), `404.html contains zero serviceWo
 assert(!notFoundHtml.includes('caches.delete'), `404.html contains zero caches.delete calls`);
 
 // Verify sw.js cache name is updated to v9 or later
-assert(/datum-adas-offline-v(9|1\d+)/.test(swJs), `sw.js active cache target is updated to datum-adas-offline-v9 or later`);
+assert(/datum-adas-offline-v(9|[1-9]\d+)/.test(swJs), `sw.js active cache target is updated to datum-adas-offline-v9 or later`);
 
 // Verify all static assets in sw.js exist on filesystem
 const assetMatches = swJs.match(/STATIC_ASSETS\s*=\s*\[([\s\S]*?)\]/);

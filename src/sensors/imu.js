@@ -133,8 +133,11 @@ function handleOrientation(event) {
   const deltaRad = (deltaPitchDeg * Math.PI) / 180;
   const horizonShiftPx = Math.round(FOCAL_LENGTH_Y_PX * Math.tan(deltaRad));
 
-  // Clamped stabilized horizon row
-  telemetryState.horizonY = Math.max(30, Math.min(85, BASELINE_HORIZON_Y + horizonShiftPx));
+  // Clamped stabilized horizon row: modulates around true calibrated optical horizon
+  const baseline = (typeof telemetryState.calibratedHorizonY === 'number' && Number.isFinite(telemetryState.calibratedHorizonY))
+    ? telemetryState.calibratedHorizonY
+    : (telemetryState.horizonY || BASELINE_HORIZON_Y);
+  telemetryState.horizonY = Math.max(25, Math.min(90, baseline + horizonShiftPx));
   telemetryState.imuConfidence = 'NOMINAL';
 }
 
@@ -153,7 +156,9 @@ export function resetImuBaseline() {
   baselinePitchDeg = null;
   baselineRollDeg = null;
   filteredRollDeg = 0;
-  telemetryState.horizonY = BASELINE_HORIZON_Y;
+  telemetryState.horizonY = (typeof telemetryState.calibratedHorizonY === 'number' && Number.isFinite(telemetryState.calibratedHorizonY))
+    ? telemetryState.calibratedHorizonY
+    : BASELINE_HORIZON_Y;
   telemetryState.pitchDeg = 0;
   telemetryState.rollDeg = 0;
 }

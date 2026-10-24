@@ -69,10 +69,10 @@ for (let i = 0; i < ITERATIONS; i++) {
 
   // Invariant 2: Confirmed Collision Hazard Guarantee (Zero False Negatives)
   // When an imminent collision threat is confirmed for >= 3 frames (consecutiveTicks >= 2),
-  // it MUST trigger DANGER_COLLISION.
-  const isCriticalTtc = result.timeToCollisionSec <= 2.4 && (closingSpeedMph > 1.0 || speedMps > 1.5);
-  const isStationaryHazard = closingSpeedMph <= 1.0 && speedMps > 4.5 && targetDist <= result.stoppingDistanceM;
-  const isHighClosingSpeedHazard = closingSpeedMph > 15 && targetDist <= result.stoppingDistanceM;
+  // it MUST trigger DANGER_COLLISION, respecting ISO 15623 standstill/creep gating.
+  const isCriticalTtc = !result.isStandstill && !result.isLowSpeedCreep && result.timeToCollisionSec <= 2.4 && (closingSpeedMph > 1.0 || speedMps > 1.5);
+  const isStationaryHazard = !result.isStandstill && !result.isLowSpeedCreep && closingSpeedMph <= 1.0 && speedMps > 4.5 && targetDist <= result.stoppingDistanceM;
+  const isHighClosingSpeedHazard = !result.isStandstill && closingSpeedMph > 15 && targetDist <= result.stoppingDistanceM;
   const isCollisionThreat = isCriticalTtc || isStationaryHazard || isHighClosingSpeedHazard;
 
   if (isCollisionThreat && consecutiveTicks >= 2) {
