@@ -33,9 +33,13 @@ function bootstrap() {
     if (isLaunching) return;
     isLaunching = true;
 
-    // Immediately dismiss splash screen
+    // Immediately dismiss splash screen with fluid transition
     if (splashOverlay) {
-      splashOverlay.classList.add('hidden');
+      splashOverlay.classList.add('dismissing');
+      setTimeout(() => {
+        splashOverlay.style.display = 'none';
+        splashOverlay.classList.add('hidden');
+      }, 400);
     }
 
     // 1. Invoke camera immediately in the direct user gesture tick (Critical for iOS Safari!)

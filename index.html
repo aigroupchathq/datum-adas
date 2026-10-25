@@ -15,8 +15,11 @@
       }
       var splash = document.getElementById('splash-overlay');
       if (splash) {
-        splash.style.display = 'none';
-        splash.classList.add('hidden');
+        splash.classList.add('dismissing');
+        setTimeout(function() {
+          splash.style.display = 'none';
+          splash.classList.add('hidden');
+        }, 400);
       }
 
       var video = document.getElementById('live-camera-video');
@@ -1320,25 +1323,35 @@
       padding-top: 4px;
     }
 
-    /* Splash Screen (Neat Black Minimal Automotive Theme) */
-    /* Splash Screen (Neat Black Minimal Automotive Theme - Full Screen Viewport) */
+    /* ==========================================================================
+       SPLASH SCREEN (PREMIUM AUTOMOTIVE COCKPIT ONBOARDING)
+       100% Offline, Zero External Fonts/CDNs, Mobile Landscape Mount Optimized
+       ========================================================================== */
     #splash-overlay {
       position: fixed;
       inset: 0;
       width: 100vw;
       height: 100vh;
       height: 100dvh;
-      background: radial-gradient(circle at 50% 32%, #111522 0%, #06070c 55%, #000000 100%);
+      background: radial-gradient(ellipse 90% 70% at 50% 18%, #0d1526 0%, #060912 45%, #010204 100%);
       display: flex;
       flex-direction: column;
-      justify-content: space-between;
+      justify-content: center;
       align-items: center;
       z-index: 9999;
-      padding: max(32px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+      padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
       box-sizing: border-box;
       overflow-y: auto;
+      overflow-x: hidden;
       text-align: center;
-      transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.4s ease;
+      transition: opacity 0.42s cubic-bezier(0.16, 1, 0.3, 1), transform 0.42s cubic-bezier(0.16, 1, 0.3, 1), filter 0.42s ease, visibility 0.42s ease;
+    }
+
+    #splash-overlay.dismissing {
+      opacity: 0;
+      transform: scale(1.035);
+      filter: blur(4px);
+      pointer-events: none;
     }
 
     #splash-overlay.hidden {
@@ -1348,158 +1361,385 @@
       display: none !important;
     }
 
+    /* Ambient Subtle Cockpit Grid */
+    .splash-ambient-grid {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: 
+        radial-gradient(ellipse at 50% 30%, rgba(30, 65, 115, 0.22) 0%, rgba(0, 0, 0, 0) 70%),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+      background-size: 100% 100%, 48px 48px, 48px 48px;
+      mask-image: radial-gradient(circle at 50% 40%, black 30%, transparent 80%);
+      -webkit-mask-image: radial-gradient(circle at 50% 40%, black 30%, transparent 80%);
+      z-index: 0;
+    }
+
     .splash-card {
-      background: transparent;
-      border: none;
-      box-shadow: none;
-      border-radius: 0;
-      padding: 0;
-      max-width: 680px;
+      position: relative;
+      z-index: 1;
       width: 100%;
-      height: 100%;
-      min-height: 100%;
+      max-width: 620px;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       align-items: center;
-      text-align: center;
+      gap: 16px;
+      margin: auto 0;
       box-sizing: border-box;
+    }
+
+    .splash-col-visual,
+    .splash-col-action {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .splash-col-visual {
+      gap: 12px;
+    }
+
+    .splash-col-action {
+      gap: 14px;
     }
 
     .splash-header-group {
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding-top: 8px;
+      gap: 6px;
     }
 
-    .splash-eyebrow {
-      font-size: 0.72rem;
+    .splash-eyebrow-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 14px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 999px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+
+    .eyebrow-beacon {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #30d158;
+      box-shadow: 0 0 8px #30d158;
+    }
+
+    .eyebrow-text {
+      font-size: 0.64rem;
       font-weight: 600;
-      letter-spacing: 5px;
-      color: rgba(255, 255, 255, 0.46);
+      letter-spacing: 2.5px;
+      color: rgba(255, 255, 255, 0.65);
       text-transform: uppercase;
-      margin-bottom: 12px;
+    }
+
+    .splash-brand-block {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-top: 2px;
+    }
+
+    .splash-brand-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      filter: drop-shadow(0 0 16px rgba(255, 209, 89, 0.35));
     }
 
     .splash-brand {
-      font-size: 2.35rem;
-      font-weight: 350;
+      font-size: 2.15rem;
       letter-spacing: 6px;
-      color: #ffffff;
-      margin-bottom: 0px;
-      text-align: center;
+      margin: 0;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
+      align-items: baseline;
+      gap: 8px;
+      line-height: 1;
     }
 
-    .brand-bold {
-      font-weight: 750;
+    .brand-heavy {
+      font-weight: 800;
       color: #ffffff;
+      letter-spacing: 6px;
     }
 
-    .brand-light {
+    .brand-sub {
       font-weight: 250;
-      color: rgba(255, 255, 255, 0.70);
+      color: rgba(255, 255, 255, 0.60);
+      letter-spacing: 4px;
     }
 
+    .splash-tagline {
+      font-size: 0.68rem;
+      font-weight: 500;
+      letter-spacing: 2.2px;
+      color: rgba(255, 255, 255, 0.45);
+      text-transform: uppercase;
+      margin: 0;
+    }
+
+    /* Centerpiece Road Corridor Visual */
     .splash-road-art {
-      margin: auto 0;
+      width: 100%;
+      max-width: 480px;
       display: flex;
       justify-content: center;
       align-items: center;
-      width: 100%;
-      max-width: 520px;
-      filter: drop-shadow(0 10px 32px rgba(255, 209, 89, 0.22));
+      filter: drop-shadow(0 8px 30px rgba(255, 209, 89, 0.20));
+      margin: 4px 0;
     }
 
     .splash-road-art svg {
       width: 100%;
       height: auto;
-      max-height: 220px;
+      max-height: 145px;
       display: block;
     }
 
+    /* Readiness Cards Grid */
+    .splash-readiness-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    .readiness-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(20, 24, 34, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      padding: 8px 12px;
+      text-align: left;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    }
+
+    .chip-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #30d158;
+      box-shadow: 0 0 6px #30d158;
+      flex-shrink: 0;
+    }
+
+    .chip-content {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chip-title {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      color: #ffffff;
+      white-space: nowrap;
+    }
+
+    .chip-detail {
+      font-size: 0.54rem;
+      font-weight: 450;
+      color: rgba(255, 255, 255, 0.45);
+      white-space: nowrap;
+    }
+
+    /* Bottom Action Area */
     .splash-bottom-group {
       width: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 14px;
-      padding-bottom: 4px;
+      gap: 10px;
     }
 
-    .splash-guarantee {
+    .btn-engage,
+    .btn-engage-cockpit {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      background: rgba(255, 255, 255, 0.05);
-      border: 0.5px solid rgba(255, 255, 255, 0.12);
-      padding: 7px 18px;
+      justify-content: center;
+      gap: 14px;
+      background: linear-gradient(135deg, #ffffff 0%, #e6e9f0 100%);
+      border: none;
+      color: #000000;
+      font-size: 0.84rem;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 16px 40px;
       border-radius: 999px;
-      font-size: 0.68rem;
-      letter-spacing: 0.7px;
-      color: rgba(255, 255, 255, 0.65);
-      margin-bottom: 0px;
+      cursor: pointer;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 4px 28px rgba(255, 255, 255, 0.30), 0 0 0 1px rgba(255, 255, 255, 0.40);
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
     }
 
-    .guarantee-dot {
-      color: var(--accent-safe);
-      font-size: 0.55rem;
+    .btn-engage:hover,
+    .btn-engage-cockpit:hover {
+      transform: translateY(-1px) scale(1.02);
+      box-shadow: 0 8px 36px rgba(255, 255, 255, 0.42), 0 0 0 1px rgba(255, 255, 255, 0.60);
+    }
+
+    .btn-engage:active,
+    .btn-engage-cockpit:active {
+      transform: translateY(1px) scale(0.97);
+      box-shadow: 0 2px 14px rgba(255, 255, 255, 0.20);
+    }
+
+    .engage-beacon {
+      position: relative;
+      width: 8px;
+      height: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .beacon-core {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #30d158;
+      box-shadow: 0 0 8px #30d158;
+    }
+
+    .beacon-pulse {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: rgba(48, 209, 88, 0.40);
+      animation: beaconPulseAnim 2s infinite ease-out;
+    }
+
+    @keyframes beaconPulseAnim {
+      0% { transform: scale(0.8); opacity: 0.8; }
+      100% { transform: scale(2.2); opacity: 0; }
+    }
+
+    .engage-label {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    .engage-chevron {
+      stroke: #000000;
+      transition: transform 0.2s ease;
+    }
+
+    .btn-engage:hover .engage-chevron,
+    .btn-engage-cockpit:hover .engage-chevron {
+      transform: translateX(3px);
+    }
+
+    .splash-action-hint {
+      font-size: 0.58rem;
+      font-weight: 600;
+      letter-spacing: 1.4px;
+      color: rgba(255, 255, 255, 0.40);
+      text-transform: uppercase;
+      margin: 0;
     }
 
     .splash-disclaimer {
-      font-size: 0.54rem;
-      letter-spacing: 1.4px;
-      color: rgba(255, 255, 255, 0.30);
+      font-size: 0.52rem;
+      letter-spacing: 1.2px;
+      color: rgba(255, 255, 255, 0.26);
       text-transform: uppercase;
       font-weight: 500;
       line-height: 1.4;
       text-align: center;
-      max-width: 440px;
+      max-width: 480px;
+      margin: 0;
     }
 
-    .btn-engage {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      background: #ffffff;
-      border: none;
-      color: #000000;
-      font-size: 0.82rem;
-      font-weight: 650;
-      letter-spacing: 2px;
-      text-transform: uppercase;
-      padding: 16px 36px;
-      border-radius: 999px;
-      cursor: pointer;
-      width: 100%;
-      max-width: 380px;
-      box-shadow: 0 4px 28px rgba(255, 255, 255, 0.28);
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-      -webkit-tap-highlight-color: transparent;
-    }
+    /* Landscape Mode: Optimized Car Dashboard Mount */
+    @media (orientation: landscape) and (max-height: 560px) {
+      #splash-overlay {
+        padding: max(10px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+        justify-content: center;
+      }
 
-    .btn-engage:hover {
-      opacity: 0.92;
-      transform: scale(1.02);
-      box-shadow: 0 6px 30px rgba(255, 255, 255, 0.35);
-    }
+      .splash-card {
+        display: grid;
+        grid-template-columns: 1.1fr 1fr;
+        align-items: center;
+        gap: 24px;
+        max-width: 880px;
+        height: auto;
+        min-height: unset;
+        text-align: left;
+      }
 
-    .btn-engage:active {
-      transform: scale(0.96);
-      opacity: 0.85;
-    }
+      .splash-col-visual,
+      .splash-col-action {
+        align-items: stretch;
+      }
 
-    .engage-led {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: var(--accent-safe);
-      box-shadow: 0 0 8px var(--accent-safe);
+      .splash-header-group {
+        align-items: flex-start;
+        text-align: left;
+      }
+
+      .splash-brand-block {
+        justify-content: flex-start;
+      }
+
+      .splash-road-art {
+        margin: 4px 0 0 0;
+        max-width: 100%;
+      }
+
+      .splash-road-art svg {
+        max-height: 110px;
+      }
+
+      .splash-bottom-group {
+        align-items: stretch;
+        gap: 6px;
+      }
+
+      .splash-readiness-row {
+        grid-template-columns: 1fr;
+        gap: 5px;
+        max-width: 100%;
+      }
+
+      .readiness-chip {
+        padding: 5px 10px;
+      }
+
+      .btn-engage,
+      .btn-engage-cockpit {
+        max-width: 100%;
+        padding: 12px 24px;
+        font-size: 0.78rem;
+      }
+
+      .splash-action-hint {
+        text-align: center;
+      }
+
+      .splash-disclaimer {
+        text-align: center;
+        max-width: 100%;
+      }
     }
 
     /* Mobile Responsive Adaptation */
@@ -1539,31 +1779,31 @@
       }
 
       .splash-card {
-        padding: 30px 22px;
-        border-radius: 26px;
+        gap: 12px;
       }
 
       .splash-brand {
-        font-size: 1.35rem;
-        letter-spacing: 2px;
+        font-size: 1.65rem;
+        letter-spacing: 4px;
       }
 
       .splash-tagline {
-        font-size: 0.76rem;
-        margin-bottom: 20px;
-        line-height: 1.45;
+        font-size: 0.60rem;
+        letter-spacing: 1.6px;
       }
 
-      .splash-guarantee {
-        font-size: 0.58rem;
-        padding: 5px 10px;
-        margin-bottom: 24px;
+      .splash-readiness-row {
+        gap: 6px;
       }
 
-      .btn-engage {
-        padding: 13px 28px;
-        font-size: 0.74rem;
-        letter-spacing: 1.5px;
+      .readiness-chip {
+        padding: 6px 10px;
+      }
+
+      .btn-engage,
+      .btn-engage-cockpit {
+        padding: 14px 28px;
+        font-size: 0.78rem;
       }
 
       /* Compact Landscape Dock on Mobile */
@@ -1939,76 +2179,145 @@
 
   <!-- Mandatory User Gesture & Safety Notice Splash (Full-Screen Viewport) -->
   <div id="splash-overlay">
+    <div class="splash-ambient-grid" aria-hidden="true"></div>
+
     <div class="splash-card">
-      <div class="splash-header-group">
-        <div class="splash-eyebrow">AUTOMOTIVE INTELLIGENCE</div>
-        
-        <h1 class="splash-brand">
-          <span class="brand-bold">DATUM</span>
-          <span class="brand-light">ATELIER</span>
-        </h1>
-      </div>
+      <!-- Visual Column (Top in Portrait / Left in Landscape) -->
+      <div class="splash-col-visual">
+        <div class="splash-header-group">
+          <div class="splash-eyebrow-chip">
+            <span class="eyebrow-beacon"></span>
+            <span class="eyebrow-text">AUTOMOTIVE ACTIVE AVIONICS</span>
+          </div>
 
-      <!-- Perspective Lane Lines Illustration (Scalable Viewport Art) -->
-      <div class="splash-road-art">
-        <svg width="340" height="120" viewBox="0 0 340 120" fill="none">
-          <defs>
-            <linearGradient id="corridorGlow" x1="170" y1="20" x2="170" y2="120" gradientUnits="userSpaceOnUse">
-              <stop offset="0%" stop-color="#ffd159" stop-opacity="0"/>
-              <stop offset="100%" stop-color="#ffd159" stop-opacity="0.10"/>
-            </linearGradient>
-          </defs>
-
-          <!-- Perspective Road Corridor Floor -->
-          <polygon points="170,20 36,120 304,120" fill="url(#corridorGlow)"/>
-
-          <!-- Stabilized Horizon Reference Hairline -->
-          <line x1="50" y1="20" x2="144" y2="20" stroke="rgba(255,255,255,0.20)" stroke-width="0.75"/>
-          <line x1="196" y1="20" x2="290" y2="20" stroke="rgba(255,255,255,0.20)" stroke-width="0.75"/>
-          <circle cx="170" cy="20" r="3" fill="#30d158"/>
-          <circle cx="170" cy="20" r="7.5" stroke="#30d158" stroke-width="0.6" stroke-opacity="0.45"/>
-
-          <!-- Inner 1.85m Vehicle Wheel Tracks -->
-          <line x1="170" y1="20" x2="105" y2="120" stroke="rgba(255, 209, 89, 0.22)" stroke-width="0.8" stroke-dasharray="3 3"/>
-          <line x1="170" y1="20" x2="235" y2="120" stroke="rgba(255, 209, 89, 0.22)" stroke-width="0.8" stroke-dasharray="3 3"/>
-
-          <!-- Transverse Calibration Distance Gates (50m, 30m, 15m) -->
-          <line x1="146" y1="38" x2="194" y2="38" stroke="rgba(255, 209, 89, 0.35)" stroke-width="0.75"/>
-          <line x1="126" y1="58" x2="214" y2="58" stroke="rgba(255, 209, 89, 0.50)" stroke-width="0.85"/>
-          <line x1="94" y1="88" x2="246" y2="88" stroke="rgba(255, 209, 89, 0.75)" stroke-width="1.0"/>
-          <line x1="94" y1="84" x2="94" y2="92" stroke="rgba(255, 209, 89, 0.75)" stroke-width="1.0"/>
-          <line x1="246" y1="84" x2="246" y2="92" stroke="rgba(255, 209, 89, 0.75)" stroke-width="1.0"/>
-
-          <!-- Golden Highway Dashed Stripes (Left Lane) -->
-          <polygon points="158,30 160.5,30 152,40 149.5,40" fill="#ffd159" fill-opacity="0.45"/>
-          <polygon points="140,52 143.5,52 127,70 122.5,70" fill="#ffd159" fill-opacity="0.75"/>
-          <polygon points="112,84 117,84 86,120 80,120" fill="#ffd159" fill-opacity="0.95"/>
-
-          <!-- Golden Highway Dashed Stripes (Right Lane) -->
-          <polygon points="179.5,30 182,30 190.5,40 188,40" fill="#ffd159" fill-opacity="0.45"/>
-          <polygon points="196.5,52 200,52 217.5,70 213,70" fill="#ffd159" fill-opacity="0.75"/>
-          <polygon points="223,84 228,84 260,120 254,120" fill="#ffd159" fill-opacity="0.95"/>
-
-          <!-- Lead Target Tracking Reticle at 35m -->
-          <path d="M 156 54 L 151 54 L 151 59 M 184 54 L 189 54 L 189 59 M 151 66 L 151 71 L 156 71 M 189 66 L 189 71 L 184 71" stroke="#ffd159" stroke-width="1.0"/>
-          <rect x="157" y="47" width="26" height="7.5" rx="3.5" fill="#14120c" stroke="#ffd159" stroke-width="0.5"/>
-          <text x="170" y="52.8" fill="#ffd159" font-size="5.5" font-weight="600" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif">35m</text>
-        </svg>
-      </div>
-
-      <div class="splash-bottom-group">
-        <div class="splash-guarantee">
-          <span class="guarantee-dot">●</span>
-          <span>100% On-Device • Ephemeral Stream • Zero Video Stored</span>
+          <div class="splash-brand-block">
+            <div class="splash-brand-logo">
+              <svg width="38" height="38" viewBox="0 0 38 38" fill="none">
+                <circle cx="19" cy="19" r="17" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"/>
+                <circle cx="19" cy="19" r="11" stroke="rgba(255,209,89,0.35)" stroke-width="0.8" stroke-dasharray="2 3"/>
+                <line x1="6" y1="19" x2="32" y2="19" stroke="rgba(255,255,255,0.22)" stroke-width="0.8"/>
+                <line x1="19" y1="6" x2="19" y2="32" stroke="rgba(255,255,255,0.22)" stroke-width="0.8"/>
+                <polygon points="19,10 26,19 19,28 12,19" stroke="#ffd159" stroke-width="1" fill="none"/>
+                <circle cx="19" cy="19" r="3" fill="#30d158"/>
+              </svg>
+            </div>
+            <h1 class="splash-brand">
+              <span class="brand-heavy">DATUM</span>
+              <span class="brand-sub">ADAS</span>
+            </h1>
+          </div>
+          <p class="splash-tagline">VISION-BASED COLLISION & LANE DEPARTURE ADVISORY</p>
         </div>
 
-        <button id="btn-main-start" class="btn-engage" onclick="window.__launchAdas(event)" ontouchend="window.__launchAdas(event)">
-          <span class="engage-led"></span>
-          <span class="engage-label">INITIALIZE HUD</span>
-        </button>
+        <!-- Perspective Lane Lines Illustration (Scalable Viewport Art) -->
+        <div class="splash-road-art">
+          <svg width="380" height="130" viewBox="0 0 380 130" fill="none">
+            <defs>
+              <linearGradient id="splashCorridorGlow" x1="190" y1="18" x2="190" y2="130" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#ffd159" stop-opacity="0"/>
+                <stop offset="100%" stop-color="#ffd159" stop-opacity="0.12"/>
+              </linearGradient>
+              <linearGradient id="splashHorizonGlow" x1="50" y1="18" x2="330" y2="18" gradientUnits="userSpaceOnUse">
+                <stop offset="0%" stop-color="#30d158" stop-opacity="0"/>
+                <stop offset="50%" stop-color="#30d158" stop-opacity="0.4"/>
+                <stop offset="100%" stop-color="#30d158" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
 
-        <div class="splash-disclaimer">
-          SAE J3016 LEVEL 0 ADVISORY SYSTEM • DRIVER RETAINS 100% CONTROL
+            <!-- Ground Plane Corridor Floor -->
+            <polygon points="190,18 30,130 350,130" fill="url(#splashCorridorGlow)"/>
+
+            <!-- Stabilized Horizon Reference Hairline -->
+            <line x1="40" y1="18" x2="160" y2="18" stroke="rgba(255,255,255,0.18)" stroke-width="0.75"/>
+            <line x1="220" y1="18" x2="340" y2="18" stroke="rgba(255,255,255,0.18)" stroke-width="0.75"/>
+            <line x1="100" y1="18" x2="280" y2="18" stroke="url(#splashHorizonGlow)" stroke-width="1.5"/>
+
+            <!-- Precision Horizon Vanishing Reticle -->
+            <circle cx="190" cy="18" r="3" fill="#30d158"/>
+            <circle cx="190" cy="18" r="7" stroke="#30d158" stroke-width="0.6" stroke-opacity="0.5"/>
+            <line x1="190" y1="8" x2="190" y2="13" stroke="#30d158" stroke-width="0.8"/>
+            <line x1="190" y1="23" x2="190" y2="28" stroke="#30d158" stroke-width="0.8"/>
+            <line x1="180" y1="18" x2="185" y2="18" stroke="#30d158" stroke-width="0.8"/>
+            <line x1="195" y1="18" x2="200" y2="18" stroke="#30d158" stroke-width="0.8"/>
+
+            <!-- Vehicle Wheel Tracks (1.85m vehicle track) -->
+            <line x1="190" y1="18" x2="115" y2="130" stroke="rgba(255, 209, 89, 0.25)" stroke-width="0.9" stroke-dasharray="3 3"/>
+            <line x1="190" y1="18" x2="265" y2="130" stroke="rgba(255, 209, 89, 0.25)" stroke-width="0.9" stroke-dasharray="3 3"/>
+
+            <!-- Transverse Distance Calibration Gates (50m, 30m, 15m) -->
+            <line x1="162" y1="36" x2="218" y2="36" stroke="rgba(255, 209, 89, 0.32)" stroke-width="0.75"/>
+            <text x="224" y="38" fill="rgba(255,209,89,0.5)" font-size="5" font-family="-apple-system, BlinkMacSystemFont, sans-serif">50m</text>
+
+            <line x1="140" y1="58" x2="240" y2="58" stroke="rgba(255, 209, 89, 0.45)" stroke-width="0.85"/>
+            <text x="247" y="60" fill="rgba(255,209,89,0.65)" font-size="5.5" font-family="-apple-system, BlinkMacSystemFont, sans-serif">30m</text>
+
+            <line x1="104" y1="92" x2="276" y2="92" stroke="rgba(255, 209, 89, 0.70)" stroke-width="1.0"/>
+            <line x1="104" y1="88" x2="104" y2="96" stroke="rgba(255, 209, 89, 0.70)" stroke-width="1.0"/>
+            <line x1="276" y1="88" x2="276" y2="96" stroke="rgba(255, 209, 89, 0.70)" stroke-width="1.0"/>
+            <text x="284" y="94" fill="rgba(255,209,89,0.85)" font-size="6" font-family="-apple-system, BlinkMacSystemFont, sans-serif">15m</text>
+
+            <!-- Golden Highway Dashed Stripes (Left Lane) -->
+            <polygon points="176,28 179,28 170,38 167,38" fill="#ffd159" fill-opacity="0.45"/>
+            <polygon points="157,50 161,50 144,70 139,70" fill="#ffd159" fill-opacity="0.75"/>
+            <polygon points="126,86 132,86 96,126 89,126" fill="#ffd159" fill-opacity="0.95"/>
+
+            <!-- Golden Highway Dashed Stripes (Right Lane) -->
+            <polygon points="201,28 204,28 213,38 210,38" fill="#ffd159" fill-opacity="0.45"/>
+            <polygon points="219,50 223,50 241,70 236,70" fill="#ffd159" fill-opacity="0.75"/>
+            <polygon points="248,86 254,86 291,126 284,126" fill="#ffd159" fill-opacity="0.95"/>
+
+            <!-- Lead Target Vehicle Tracking Reticle at 35m -->
+            <path d="M 174 53 L 169 53 L 169 58 M 206 53 L 211 53 L 211 58 M 169 66 L 169 71 L 174 71 M 211 66 L 211 71 L 206 71" stroke="#ffd159" stroke-width="1.1"/>
+            <rect x="175" y="46" width="30" height="8" rx="4" fill="#0d111a" stroke="#ffd159" stroke-width="0.6"/>
+            <circle cx="179" cy="50" r="1.5" fill="#30d158"/>
+            <text x="194" y="52" fill="#ffd159" font-size="5" font-weight="700" text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, sans-serif">35m</text>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Action Column (Bottom in Portrait / Right in Landscape) -->
+      <div class="splash-col-action">
+        <div class="splash-readiness-row">
+          <div class="readiness-chip">
+            <span class="chip-status-dot"></span>
+            <div class="chip-content">
+              <span class="chip-title">100% ON-DEVICE</span>
+              <span class="chip-detail">Zero Cloud Latency</span>
+            </div>
+          </div>
+          <div class="readiness-chip">
+            <span class="chip-status-dot"></span>
+            <div class="chip-content">
+              <span class="chip-title">EPHEMERAL OPTICS</span>
+              <span class="chip-detail">Zero Video Stored</span>
+            </div>
+          </div>
+          <div class="readiness-chip">
+            <span class="chip-status-dot"></span>
+            <div class="chip-content">
+              <span class="chip-title">60Hz IMU FUSION</span>
+              <span class="chip-detail">Horizon Stabilized</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="splash-bottom-group">
+          <button id="btn-main-start" class="btn-engage btn-engage-cockpit" onclick="window.__launchAdas(event)" ontouchend="window.__launchAdas(event)" aria-label="Initialize Cockpit HUD">
+            <span class="engage-beacon">
+              <span class="beacon-pulse"></span>
+              <span class="beacon-core"></span>
+            </span>
+            <span class="engage-label">INITIALIZE HUD</span>
+            <svg class="engage-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+
+          <p class="splash-action-hint">TOUCH OR CLICK TO ENGAGE CAMERA STREAM & STEREO AUDIO</p>
+
+          <div class="splash-disclaimer">
+            SAE J3016 LEVEL 0 DRIVER ADVISORY SYSTEM • DRIVER RETAINS 100% CONTROL
+          </div>
         </div>
       </div>
     </div>
